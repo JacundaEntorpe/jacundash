@@ -10,8 +10,10 @@ mod config_ui;
 mod engine;
 mod krunner;
 mod marcas;
+mod markdown;
 mod matcher;
 mod model;
+mod previa;
 mod providers;
 mod sistema;
 mod ui;
@@ -89,8 +91,13 @@ fn main() -> glib::ExitCode {
             *lista.write().unwrap() = providers::apps::ler_apps();
         });
         let varredura = providers::repos::Varredura::new(cfg.clone());
+        let recentes = providers::recentes::Recentes::new(cfg.clone());
+        let lista_recentes = recentes.lista.clone();
         let mut provedores: Vec<Arc<dyn Provider>> = vec![
             Arc::new(providers::calc::Calc),
+            Arc::new(providers::conversor::Conversor::new()),
+            Arc::new(providers::comando::Comando),
+            Arc::new(recentes),
             Arc::new(providers::jacundash::Jacundash),
             Arc::new(apps),
             Arc::new(providers::janelas::Janelas),
@@ -101,6 +108,10 @@ fn main() -> glib::ExitCode {
             Arc::new(providers::tailscale::Tailscale::new(cfg.clone())),
             Arc::new(providers::ia::Ia::new(cfg.clone())),
             Arc::new(providers::hermes::Hermes::new(cfg.clone())),
+            Arc::new(providers::emoji::Emoji::new()),
+            Arc::new(providers::area::Area),
+            Arc::new(providers::sistema::Sistema { cfg: cfg.clone() }),
+            Arc::new(providers::navegador::Navegador { cfg: cfg.clone() }),
             // As nossas pastas antes das do Baloo: na repetida, fica a que tem mais ações
             Arc::new(providers::repos::Pastas { varredura: varredura.clone(), cfg: cfg.clone() }),
             Arc::new(providers::arquivos::Arquivos),
@@ -109,7 +120,7 @@ fn main() -> glib::ExitCode {
         for p in providers::plugin::carregar() {
             provedores.push(Arc::new(p));
         }
-        *u.borrow_mut() = Some(ui::Ui::new(app, Engine { providers: provedores }, cfg, uso));
+        *u.borrow_mut() = Some(ui::Ui::new(app, Engine { providers: provedores }, cfg, uso, lista_recentes));
         // Continua rodando com a janela escondida
         std::mem::forget(app.hold());
     });

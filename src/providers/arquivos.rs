@@ -31,6 +31,7 @@ fn item(uri: String, nome: String, pasta: String, icone: String, categoria: Stri
         Effect::Open { uri: gio::File::for_path(&pai).uri().to_string() }
     };
     Item::new(nome, Effect::Open { uri })
+        .preview(caminho.clone())
         .subtitle(pasta)
         .icon(icone)
         .category(categoria)
@@ -89,8 +90,9 @@ impl Provider for Arquivos {
     }
     fn query(&self, q: &Query) -> Vec<Item> {
         let texto = q.text.trim();
-        // Sem a palavra-chave, só a partir de 3 letras: com menos vem arquivo demais
-        if texto.chars().count() < if q.with_keyword { 1 } else { 3 } {
+        // Sem a palavra-chave, só a partir de 3 letras: com menos vem arquivo demais.
+        // ":" (emoji) e ">" (comando) não são busca de arquivo.
+        if texto.chars().count() < if q.with_keyword { 1 } else { 3 } || (!q.with_keyword && texto.starts_with([':', '>'])) {
             return vec![];
         }
         if krunner::existe(BALOO.0) {
@@ -98,13 +100,18 @@ impl Provider for Arquivos {
             return ms
                 .into_iter()
                 .take(LIMITE)
-                .map(|m| {
+                .filter_map(|m| {
                     let categoria = if m.category.is_empty() { "Arquivos".into() } else { m.category };
-                    // O Baloo também acha pelo conteúdo: quem tem a busca no nome vem primeiro.
-                    // E fica abaixo dos apps e das janelas: arquivo raramente é o que se quer de primeira
+                    // O Baloo também acha pelo conteúdo. Na busca normal isso só polui ("desli"
+                    // traz todo texto que fala de desligar): só entra quem tem a busca no nome.
+                    // Com "ar texto", entra o conteúdo também, depois dos que batem pelo nome.
                     let pelo_nome = matcher::score(&q.norm, &m.text, "");
+                    if pelo_nome == 0.0 && !q.with_keyword {
+                        return None;
+                    }
+                    // Abaixo dos apps e das janelas: arquivo raramente é o que se quer de primeira
                     let nota = if pelo_nome > 0.0 { pelo_nome * 0.75 } else { 0.2 } + (m.relevance as f32) * 0.05;
-                    item(m.id, m.text, m.subtext, m.icon, categoria, nota, true)
+                    Some(item(m.id, m.text, m.subtext, m.icon, categoria, nota, true))
                 })
                 .collect();
         }

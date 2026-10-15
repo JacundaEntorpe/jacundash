@@ -92,9 +92,10 @@ impl Provider for Apps {
         for app in lista.iter() {
             let usos = uso.get(&app.id).copied().unwrap_or(0);
             let mut nota = if q.norm.is_empty() {
-                // Busca vazia: só os que você já abriu por aqui, os mais usados primeiro
-                if usos == 0 && !q.with_keyword {
-                    continue;
+                // Busca vazia só mostra apps com o "app " (sem ele, quem aparece são os recentes,
+                // se estiverem ligados nas configurações)
+                if !q.with_keyword {
+                    return vec![];
                 }
                 0.5
             } else {

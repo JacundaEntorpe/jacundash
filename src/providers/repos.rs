@@ -271,7 +271,7 @@ impl Provider for Repos {
                 sub += "  ·  recente do VS Code";
             }
             let editor = Effect::Exec { cmd: comando(&cfg.editor, &r.caminho), terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: false };
-            let mut item = Item::new(&r.nome, editor).subtitle(sub).icon(if r.git { "folder-git" } else { "folder" }).score(nota.min(1.0));
+            let mut item = Item::new(&r.nome, editor).subtitle(sub).icon(if r.git { "folder-git" } else { "folder" }).score(nota.min(1.0)).preview(r.caminho.clone());
             item = acoes_de_pasta(item, &r.caminho, &cfg, false)
                 .action("Abrir no gerenciador de arquivos", "system-file-manager", Effect::abrir_caminho(&r.caminho));
             if let Some(web) = &r.web {
@@ -312,7 +312,7 @@ impl Provider for Pastas {
             }
             // O subtítulo é a pasta de cima, igual o Baloo: assim a mesma pasta não aparece duas vezes
             let pai = til(&p.parent().map(|x| x.to_string_lossy().into_owned()).unwrap_or_default());
-            let item = Item::new(&nome, Effect::abrir_caminho(&caminho)).subtitle(pai).icon("folder").score(nota + 0.01);
+            let item = Item::new(&nome, Effect::abrir_caminho(&caminho)).subtitle(pai).icon("folder").score(nota + 0.01).preview(caminho.clone());
             itens.push(acoes_de_pasta(item, &caminho, &cfg, true).action("Copiar o caminho", "edit-copy", Effect::Copy { text: caminho.clone() }));
         }
         itens

@@ -24,6 +24,12 @@ pub struct Ui {
     list: gtk::ListBox,
     scroll: gtk::ScrolledWindow,
     rodape: gtk::Label,
+    /// Coluna da prévia, à direita da lista.
+    previa: gtk::Box,
+    /// O próprio Rc, pros botões das linhas chamarem a tela de volta.
+    eu: RefCell<std::rc::Weak<Ui>>,
+    /// Os botões de ação de cada linha (só aparecem na selecionada e na com o mouse em cima).
+    botoes: RefCell<Vec<Option<gtk::Box>>>,
     pub engine: Rc<Engine>,
     /// Muda com o app aberto (aba de configurações).
     pub cfg: Compartilhada,
@@ -33,6 +39,7 @@ pub struct Ui {
     tx: async_channel::Sender<Batch>,
     efeitos_tx: async_channel::Sender<Vec<Effect>>,
     uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>,
+    recentes: Arc<Mutex<Vec<Item>>>,
     estado: RefCell<Estado>,
 }
 
@@ -46,10 +53,12 @@ struct Estado {
     desenho_marcado: bool,
     /// Ações da linha selecionada abertas (Shift+Enter): (linha, índice da ação)
     acoes: Option<(usize, usize)>,
+    /// Linha com o mouse em cima.
+    hover: Option<usize>,
 }
 
 impl Ui {
-    pub fn new(app: &gtk::Application, engine: Engine, cfg: Compartilhada, uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>) -> Rc<Ui> {
+    pub fn new(app: &gtk::Application, engine: Engine, cfg: Compartilhada, uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>, recentes: Arc<Mutex<Vec<Item>>>) -> Rc<Ui> {
         carregar_css();
         let cfg_compartilhada = cfg;
         let cfg = cfg_compartilhada.read().unwrap().clone();
@@ -92,8 +101,26 @@ impl Ui {
         rodape.set_xalign(0.0);
         rodape.set_visible(false);
 
+        let previa = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        // Largura travada (External: o conteúdo não consegue pedir mais), e rola se for comprido.
+        // Senão um bloco de código largo no README estica a prévia e aperta a lista.
+        let previa_rolagem = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::External)
+            .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .propagate_natural_height(true)
+            .max_content_height(cfg.aparencia.altura_max)
+            .width_request(crate::previa::LARGURA)
+            .hexpand(false)
+            .child(&previa)
+            .build();
+        previa_rolagem.set_visible(false);
+        let corpo = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        scroll.set_hexpand(true);
+        corpo.append(&scroll);
+        corpo.append(&previa_rolagem);
+
         caixa.append(&entry);
-        caixa.append(&scroll);
+        caixa.append(&corpo);
         caixa.append(&rodape);
         window.set_child(Some(&caixa));
         window.set_default_size(cfg.aparencia.largura, -1);
@@ -109,6 +136,9 @@ impl Ui {
             list,
             scroll,
             rodape,
+            previa,
+            eu: RefCell::default(),
+            botoes: RefCell::default(),
             engine: Rc::new(engine),
             cfg: cfg_compartilhada,
             configuracoes: RefCell::default(),
@@ -116,8 +146,11 @@ impl Ui {
             tx,
             efeitos_tx,
             uso_apps,
+            recentes,
             estado: RefCell::new(Estado { resultados: vec![None; n], ..Default::default() }),
         });
+
+        *ui.eu.borrow_mut() = Rc::downgrade(&ui);
 
         // Respostas dos provedores chegando
         let u = ui.clone();
@@ -343,10 +376,21 @@ impl Ui {
         let resultados = self.com_marcas(&e.resultados);
         e.linhas = engine::arrange(&self.engine, &resultados, &self.cfg.read().unwrap(), e.modo_palavra);
         self.list.remove_all();
+        self.botoes.borrow_mut().clear();
+        e.hover = None;
         for (i, linha) in e.linhas.iter().enumerate() {
             let acoes = e.acoes.filter(|(l, _)| *l == i).map(|(_, a)| a);
-            self.list.append(&self.linha(linha, acoes));
+            self.list.append(&self.linha(i, linha, acoes));
         }
+        // Reserva o espaço da prévia enquanto algum resultado tiver (assim a janela não pula a cada seta)
+        let cfg = self.cfg.read().unwrap();
+        let com_previa = cfg.extras.previa && e.linhas.iter().any(|l| l.item.preview.is_some());
+        if let Some(rolagem) = self.previa.parent().and_then(|v| v.parent()) {
+            rolagem.set_visible(com_previa); // a prévia fica dentro de um viewport da rolagem
+        }
+        let largura = cfg.aparencia.largura + if com_previa { crate::previa::LARGURA + 8 } else { 0 };
+        self.caixa.set_size_request(largura, -1);
+        drop(cfg);
         if e.selecionado >= e.linhas.len() {
             e.selecionado = 0;
         }
@@ -356,9 +400,89 @@ impl Ui {
         if let Some(row) = self.list.row_at_index(e.selecionado as i32) {
             self.list.select_row(Some(&row));
         }
+        drop(e);
+        self.atualizar_previa();
+        self.mostrar_botoes();
     }
 
-    fn linha(&self, linha: &Row, acao_aberta: Option<usize>) -> gtk::ListBoxRow {
+    /// Os botões de ação só ocupam espaço na linha selecionada e na com o mouse em cima: nas
+    /// outras, o espaço fica pro texto.
+    fn mostrar_botoes(&self) {
+        let e = self.estado.borrow();
+        for (i, b) in self.botoes.borrow().iter().enumerate() {
+            if let Some(b) = b {
+                b.set_visible(i == e.selecionado || e.hover == Some(i));
+            }
+        }
+    }
+
+    /// Seleciona a linha i (rola até ela, atualiza prévia e botões).
+    fn selecionar(&self, i: usize) {
+        self.estado.borrow_mut().selecionado = i;
+        if let Some(row) = self.list.row_at_index(i as i32) {
+            self.list.select_row(Some(&row));
+            mostrar_linha(&self.scroll, &self.list, &row);
+        }
+        self.atualizar_previa();
+        self.mostrar_botoes();
+    }
+
+    /// Tab: começo da próxima categoria. Shift+Tab: começo desta (ou da anterior, se já estiver nele).
+    fn pular_categoria(&self, frente: bool) {
+        let (sel, inicios) = {
+            let e = self.estado.borrow();
+            if e.acoes.is_some() {
+                drop(e);
+                return self.mover(if frente { 1 } else { -1 });
+            }
+            (e.selecionado, e.linhas.iter().enumerate().filter(|(_, l)| l.first_of_group).map(|(i, _)| i).collect::<Vec<_>>())
+        };
+        let Some((&primeiro, &ultimo)) = inicios.first().zip(inicios.last()) else { return };
+        let alvo = if frente {
+            inicios.iter().copied().find(|&i| i > sel).unwrap_or(primeiro)
+        } else {
+            let atual = inicios.iter().copied().filter(|&i| i <= sel).last().unwrap_or(primeiro);
+            if sel > atual { atual } else { inicios.iter().copied().filter(|&i| i < atual).last().unwrap_or(ultimo) }
+        };
+        self.selecionar(alvo);
+    }
+
+    /// Mostra a prévia da linha selecionada (se for a mesma de antes, não refaz).
+    fn atualizar_previa(&self) {
+        if !self.previa.parent().and_then(|v| v.parent()).is_some_and(|r| r.is_visible()) {
+            return;
+        }
+        let caminho = {
+            let e = self.estado.borrow();
+            e.linhas.get(e.selecionado).and_then(|l| l.item.preview.clone())
+        };
+        if self.previa.first_child().and_then(|w| w.widget_name().strip_prefix("previa:").map(String::from)) == caminho {
+            return;
+        }
+        while let Some(filho) = self.previa.first_child() {
+            self.previa.remove(&filho);
+        }
+        if let Some(c) = caminho {
+            let p = crate::previa::montar(&c);
+            p.set_widget_name(&format!("previa:{c}"));
+            self.previa.append(&p);
+        }
+    }
+
+    /// Abre as ações de uma linha (Shift+Enter, clique direito ou o botão "...").
+    fn abrir_acoes(&self, i: usize) {
+        {
+            let mut e = self.estado.borrow_mut();
+            if e.linhas.get(i).is_none_or(|l| l.item.actions.is_empty()) {
+                return;
+            }
+            e.selecionado = i;
+            e.acoes = if e.acoes.is_some_and(|(l, _)| l == i) { None } else { Some((i, 0)) };
+        }
+        self.desenhar();
+    }
+
+    fn linha(&self, indice: usize, linha: &Row, acao_aberta: Option<usize>) -> gtk::ListBoxRow {
         let caixa = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         caixa.add_css_class("item");
 
@@ -386,6 +510,8 @@ impl Ui {
             textos.set_orientation(gtk::Orientation::Vertical);
         } else {
             titulo.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            // Um mínimo pro título: quando falta espaço, quem encolhe primeiro é o subtítulo
+            titulo.set_width_chars(linha.item.title.chars().count().min(26) as i32);
         }
         textos.append(&titulo);
         if !linha.item.subtitle.is_empty() {
@@ -397,6 +523,38 @@ impl Ui {
             textos.append(&sub);
         }
         caixa.append(&textos);
+
+        // Pro mouse: as primeiras ações viram botões na linha (aparecem com o mouse em cima ou
+        // na linha selecionada), e o "..." abre todas
+        let eu = self.eu.borrow().upgrade();
+        if let (Some(eu), false) = (eu, linha.item.actions.is_empty()) {
+            let botoes = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+            botoes.add_css_class("botoes");
+            botoes.set_visible(false);
+            self.botoes.borrow_mut().push(Some(botoes.clone()));
+            for a in linha.item.actions.iter().filter(|a| !matches!(a.effect, Effect::Internal { .. })).take(3) {
+                let b = gtk::Button::from_icon_name(if a.icon.is_empty() { "system-run" } else { &a.icon });
+                b.add_css_class("flat");
+                b.add_css_class("botao-acao");
+                b.set_tooltip_text(Some(&a.label));
+                b.set_focusable(false);
+                let (u, ef, prov) = (eu.clone(), a.effect.clone(), linha.provider);
+                b.connect_clicked(move |_| {
+                    u.estado.borrow_mut().selecionado = indice;
+                    u.executar(&ef, Some(prov));
+                });
+                botoes.append(&b);
+            }
+            let mais = gtk::Button::from_icon_name("view-more-symbolic");
+            mais.add_css_class("flat");
+            mais.add_css_class("botao-acao");
+            mais.set_tooltip_text(Some("Todas as ações (Shift+Enter)"));
+            mais.set_focusable(false);
+            let u = eu.clone();
+            mais.connect_clicked(move |_| u.abrir_acoes(indice));
+            botoes.append(&mais);
+            caixa.append(&botoes);
+        }
 
         // Shift+Enter abre as ações dessa linha embaixo dela
         let fora = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -421,6 +579,28 @@ impl Ui {
         }
         let row = gtk::ListBoxRow::new();
         row.set_child(Some(&fora));
+        if self.botoes.borrow().len() <= indice {
+            self.botoes.borrow_mut().push(None); // linha sem ações
+        }
+        // Clique direito também abre as ações; o mouse em cima mostra os botões
+        if let Some(eu) = self.eu.borrow().upgrade() {
+            let direito = gtk::GestureClick::builder().button(3).build();
+            let u = eu.clone();
+            direito.connect_pressed(move |_, _, _, _| u.abrir_acoes(indice));
+            row.add_controller(direito);
+            let mouse = gtk::EventControllerMotion::new();
+            let u = eu.clone();
+            mouse.connect_enter(move |_, _, _| {
+                u.estado.borrow_mut().hover = Some(indice);
+                u.mostrar_botoes();
+            });
+            let u = eu.clone();
+            mouse.connect_leave(move |_| {
+                u.estado.borrow_mut().hover = None;
+                u.mostrar_botoes();
+            });
+            row.add_controller(mouse);
+        }
         if linha.first_of_group {
             row.add_css_class("comeco-grupo");
         }
@@ -443,8 +623,10 @@ impl Ui {
                     self.esconder();
                 }
             }
-            gdk::Key::Down | gdk::Key::Tab => self.mover(1),
-            gdk::Key::Up | gdk::Key::ISO_Left_Tab => self.mover(-1),
+            gdk::Key::Down => self.mover(1),
+            gdk::Key::Up => self.mover(-1),
+            gdk::Key::Tab => self.pular_categoria(true),
+            gdk::Key::ISO_Left_Tab => self.pular_categoria(false),
             gdk::Key::Page_Down => self.mover(5),
             gdk::Key::Page_Up => self.mover(-5),
             gdk::Key::Return | gdk::Key::KP_Enter => self.ativar(shift),
@@ -466,11 +648,9 @@ impl Ui {
             return;
         }
         let n = e.linhas.len() as i32;
-        e.selecionado = (e.selecionado as i32 + delta).rem_euclid(n) as usize;
-        if let Some(row) = self.list.row_at_index(e.selecionado as i32) {
-            self.list.select_row(Some(&row));
-            mostrar_linha(&self.scroll, &self.list, &row);
-        }
+        let i = (e.selecionado as i32 + delta).rem_euclid(n) as usize;
+        drop(e);
+        self.selecionar(i);
     }
 
     /// O mesmo que apertar Enter (jacundash --enter).
@@ -496,7 +676,15 @@ impl Ui {
                     self.desenhar();
                     return;
                 }
-                _ => (linha.item.effect.clone(), linha.provider),
+                _ => {
+                    // O Enter de verdade (não as ações) entra nos recentes, sem o Fixar/Esconder que a tela pôs
+                    let mut original = linha.item.clone();
+                    if !matches!(original.effect, Effect::None) {
+                        original.actions.truncate(original.actions.len().saturating_sub(2));
+                    }
+                    crate::providers::recentes::registrar(&self.recentes, &original, &linha.category);
+                    (linha.item.effect.clone(), linha.provider)
+                }
             }
         };
         self.executar(&efeito, Some(provedor));

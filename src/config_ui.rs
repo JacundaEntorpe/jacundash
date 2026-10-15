@@ -29,6 +29,7 @@ pub fn abrir(ui: &Rc<Ui>) {
     pilha.set_hexpand(true);
     pilha.add_titled(&pagina(geral(ui)), Some("geral"), "Geral");
     pilha.add_titled(&pagina(aparencia(ui)), Some("aparencia"), "Aparência");
+    pilha.add_titled(&pagina(extras(ui)), Some("extras"), "Extras");
     pilha.add_titled(&pagina(categorias(ui)), Some("categorias"), "Categorias");
     pilha.add_titled(&pagina(programacao(ui)), Some("programacao"), "Programação");
     pilha.add_titled(&pagina(ia(ui)), Some("ia"), "IA");
@@ -219,6 +220,33 @@ const MODELO_TEMA: &str = "/* Tema do jacundash: vale por cima do padrão. Desco
 /* @define-color jd_fundo #19191e; */\n/* @define-color jd_caixa #232328; */\n/* @define-color jd_texto #dcdce1; */\n\
 /* @define-color jd_apagado #8c8c91; */\n/* @define-color jd_destaque #e92f17; */\n/* @define-color jd_selecionado #2e2e35; */\n\n\
 /* .caixa { font-size: 11pt; } */\n";
+
+/// O que dá pra ligar e desligar além do básico.
+fn extras(ui: &Rc<Ui>) -> gtk::Box {
+    let c = coluna();
+    let e = ui.cfg.read().unwrap().extras.clone();
+    let opcoes: [(&str, &str, bool, fn(&mut Config, bool)); 4] = [
+        ("Recentes na busca vazia", "Ao abrir o jacundash, mostra o que você abriu por último (apps, repositórios, pastas, arquivos...).", e.recentes, |c, v| c.extras.recentes = v),
+        ("Comandos do sistema", "Bloquear, suspender, hibernar, reiniciar, desligar e sair da sessão. Reiniciar, desligar e sair pedem confirmação no KDE.", e.sistema, |c, v| c.extras.sistema = v),
+        ("Abas e histórico do navegador", "Precisa da integração do navegador do KDE (a extensão Plasma Integration no navegador).", e.navegador, |c, v| c.extras.navegador = v),
+        ("Prévia ao lado da lista", "Imagem, começo do texto, ou o README de uma pasta, do resultado selecionado.", e.previa, |c, v| c.extras.previa = v),
+    ];
+    for (nome, desc, valor, aplicar) in opcoes {
+        let s = gtk::Switch::builder().active(valor).build();
+        let u = ui.clone();
+        s.connect_active_notify(move |s| mudar(&u, |c| aplicar(c, s.is_active())));
+        c.append(&opcao(nome, desc, &s));
+    }
+    c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    c.append(&titulo("Sempre ligados"));
+    c.append(&explicacao(
+        "Conversor: 10 usd em brl, 5 km em milhas, 100 f em c, 2 gb em mb\n\
+         Comando no terminal: >htop\n\
+         Emoji: :fogo  (ou emoji fogo)\n\
+         Área de transferência: cb  (o que você copiou antes)",
+    ));
+    c
+}
 
 /// Todas as categorias conhecidas, na ordem da config (as que faltarem vão pro fim).
 fn todas_categorias(ui: &Ui) -> Vec<String> {

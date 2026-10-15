@@ -19,6 +19,26 @@ pub struct Config {
     pub tailscale: Tailscale,
     pub ia: Ia,
     pub hermes: Hermes,
+    pub extras: Extras,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Extras {
+    /// Busca vazia mostra o que você abriu por último (apps, repositórios, pastas...).
+    pub recentes: bool,
+    /// Bloquear, suspender, reiniciar, desligar, sair da sessão.
+    pub sistema: bool,
+    /// Abas abertas e histórico do navegador (KDE, com a integração do navegador).
+    pub navegador: bool,
+    /// Prévia ao lado da lista: imagem, começo do texto, README do repositório.
+    pub previa: bool,
+}
+
+impl Default for Extras {
+    fn default() -> Self {
+        Extras { recentes: false, sistema: false, navegador: true, previa: true }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -166,6 +186,7 @@ impl Default for Config {
             tailscale: Tailscale::default(),
             ia: Ia::default(),
             hermes: Hermes::default(),
+            extras: Extras::default(),
         }
     }
 }
@@ -189,7 +210,7 @@ impl Default for Busca {
 impl Default for Categorias {
     fn default() -> Self {
         Categorias {
-            ordem: ["Calculadora", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Jacundash", "Pastas", "Documentos", "Imagens", "Arquivos", "Web"].map(String::from).to_vec(),
+            ordem: ["Calculadora", "Conversor", "Comando", "Recentes", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Emoji", "Área de transferência", "Sistema", "Jacundash", "Abas abertas", "Pastas", "Documentos", "Imagens", "Arquivos", "Histórico do navegador", "Web"].map(String::from).to_vec(),
             limite: 6,
             limites: HashMap::from([("Aplicativos".into(), 8)]),
             esconder: vec![],

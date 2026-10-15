@@ -21,8 +21,14 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 |---|---|
 | `kat` | Apps instalados (os mesmos do menu do desktop). Os que você mais abre sobem |
 | `2^10*3`, `15% de 80`, `sqrt(2)`, `=1/3` | Calculadora. Enter copia o resultado |
+| `10 usd em brl`, `5 km em milhas`, `100 f em c`, `2 gb em mb` | Conversor de moedas (cotação do dia) e unidades: comprimento, peso, dados, tempo, volume, velocidade, área, temperatura. Enter copia |
+| `>htop` | Roda o comando no terminal (que fica aberto no fim). Shift+Enter: em segundo plano |
+| `:fogo`, `emoji fogo` | Emojis pelo nome em português. Enter copia |
+| `cb`, `cb senha` | O que você copiou antes (Klipper no KDE, cliphist no Hyprland/Sway). Enter copia de novo |
+| `desligar`, `bloquear`... | Comandos do sistema: bloquear, suspender, hibernar, reiniciar, desligar, sair. Reiniciar, desligar e sair pedem confirmação no KDE. **Desligado de fábrica** (Configurações → Extras) |
+| `github` | Abas abertas e histórico do navegador (KDE, com a extensão Plasma Integration). Dá pra desligar em Configurações → Extras |
 | `disc` | Janelas abertas (Enter vai pra janela). `ja` lista todas |
-| `relatorio` (3+ letras) | Arquivos e pastas, separados em Pastas, Imagens, Documentos... Quem tem a busca no nome vem antes de quem só tem no conteúdo. `ar texto` mostra só arquivos |
+| `relatorio` (3+ letras) | Arquivos e pastas com a busca no nome, separados em Pastas, Imagens, Documentos... `ar texto` mostra só arquivos e procura no conteúdo também |
 | `poke`, `vs poke` | Repositórios git (e as pastas abertas no VS Code), com a branch. Enter abre no editor; Shift+Enter: terminal (janela ou aba nova), Claude Code, gerenciador de arquivos, remote no navegador, `git pull`, copiar o caminho |
 | `sprites`, `pa sprites` | Pastas comuns (sem git) das mesmas pastas, com a pasta de cima do lado |
 | `gs` | Repositórios com alteração, commit sem push ou atrás do remote; `git pull`/`git push` no Shift+Enter e "Buscar atualizações de todos" (git fetch) no fim |
@@ -39,6 +45,12 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notificação quando terminam.
 
 **Teclas:** setas ou Tab andam, Enter abre, **Shift+Enter** mostra as outras ações do item, Esc fecha (ou fecha as ações). Clicar fora ou trocar de janela também fecha.
+
+**Mouse:** passando o mouse numa linha (ou na selecionada) aparecem botões com as ações principais e um "⋮" com todas; clique direito também abre as ações.
+
+**Prévia:** ao lado da lista, a imagem, o começo do texto ou o README (ou o conteúdo) da pasta do resultado selecionado. Dá pra desligar em Configurações → Extras.
+
+**Recentes:** com a busca vazia, o que você abriu por último. **Desligado de fábrica** (Configurações → Extras).
 
 **Fixar e esconder:** todo resultado tem, no Shift+Enter, "Fixar no topo" (ele e a categoria dele sobem) e "Esconder este resultado". Pra desfazer: aba de configurações → Categorias.
 

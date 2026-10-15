@@ -73,6 +73,9 @@ pub struct Item {
     /// Título longo em várias linhas (a resposta da IA), em vez de cortar com "...".
     #[serde(default)]
     pub multiline: bool,
+    /// Arquivo ou pasta pra prévia ao lado da lista (imagem, começo do texto, README).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
 }
 
 impl Effect {
@@ -104,7 +107,7 @@ impl Effect {
 
 impl Item {
     pub fn new(title: impl Into<String>, effect: Effect) -> Self {
-        Item { title: title.into(), subtitle: String::new(), icon: String::new(), score: 0.5, effect, actions: vec![], category: None, multiline: false }
+        Item { title: title.into(), subtitle: String::new(), icon: String::new(), score: 0.5, effect, actions: vec![], category: None, multiline: false, preview: None }
     }
     pub fn subtitle(mut self, s: impl Into<String>) -> Self {
         self.subtitle = s.into();
@@ -116,6 +119,10 @@ impl Item {
     }
     pub fn score(mut self, s: f32) -> Self {
         self.score = s;
+        self
+    }
+    pub fn preview(mut self, caminho: impl Into<String>) -> Self {
+        self.preview = Some(caminho.into());
         self
     }
     pub fn category(mut self, c: impl Into<String>) -> Self {

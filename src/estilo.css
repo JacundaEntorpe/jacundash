@@ -101,6 +101,55 @@ entry.busca image {
     color: @jd_texto;
 }
 
+/* botões das ações na linha (só aparecem na selecionada e na com o mouse em cima) */
+button.botao-acao {
+    min-width: 22px;
+    min-height: 22px;
+    padding: 2px;
+    color: @jd_apagado;
+}
+
+button.botao-acao:hover {
+    color: @jd_texto;
+    background: alpha(@jd_destaque, 0.2);
+}
+
+.previa {
+    background: @jd_caixa;
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 4px;
+}
+
+.previa-titulo {
+    color: @jd_texto;
+    font-weight: bold;
+}
+
+.previa-info {
+    color: @jd_apagado;
+    font-size: 8pt;
+}
+
+.previa-md {
+    color: @jd_texto;
+    font-size: 9pt;
+}
+
+.previa-codigo {
+    color: #b8b8c0;
+    font-size: 8pt;
+    background: alpha(black, 0.18);
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+.previa-texto {
+    color: @jd_texto;
+    font-family: monospace;
+    font-size: 8pt;
+}
+
 .rodape {
     color: @jd_apagado;
     font-size: 8pt;
