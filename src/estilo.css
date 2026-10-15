@@ -34,6 +34,16 @@ entry.busca {
     outline: none;
 }
 
+/* "vs " vira esta etiqueta do lado do campo */
+.etiqueta {
+    background: alpha(@jd_destaque, 0.85);
+    color: white;
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 9pt;
+    font-weight: bold;
+}
+
 entry.busca:focus-within {
     border-color: alpha(@jd_destaque, 0.6);
 }

@@ -28,7 +28,7 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 | `cb`, `cb senha` | O que você copiou antes (Klipper no KDE, cliphist no Hyprland/Sway). Enter copia de novo |
 | `desligar`, `bloquear`... | Comandos do sistema: bloquear, suspender, hibernar, reiniciar, desligar, sair. Reiniciar, desligar e sair pedem confirmação no KDE. **Desligado de fábrica** (Configurações → Extras) |
 | `github` | Abas abertas e histórico do navegador (KDE, com a extensão Plasma Integration). Dá pra desligar em Configurações → Extras |
-| `disc` | Janelas abertas (Enter vai pra janela). `ja` lista todas |
+| `disc` | Janelas abertas (Enter vai pra janela; Shift+Enter: fechar, minimizar, maximizar, mandar pra próxima área de trabalho). `ja` lista todas |
 | `relatorio` (3+ letras) | Arquivos e pastas com a busca no nome, separados em Pastas, Imagens, Documentos... `ar texto` mostra só arquivos e procura no conteúdo também |
 | `poke`, `vs poke` | Repositórios git (e as pastas abertas no VS Code), com a branch. Enter abre no editor; Shift+Enter: terminal (janela ou aba nova), Claude Code, gerenciador de arquivos, remote no navegador, `git pull`, copiar o caminho |
 | `sprites`, `pa sprites` | Pastas comuns (sem git) das mesmas pastas, com a pasta de cima do lado |
@@ -38,10 +38,14 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 | `ts`, `vps` | Aparelhos do Tailscale, online primeiro. Enter copia o IP; Shift+Enter: SSH, copiar o nome, navegador, ping |
 | `ia qual comando lista portas abertas?` | Pergunta pra IA local (Ollama). Enter manda e a resposta aparece ali mesmo, enquanto o modelo escreve; quando termina, já vai pra área de transferência. `ia` sozinho mostra quanto de memória ela ocupa e deixa liberar (bom antes de jogar) |
 | `hm organiza meus Downloads` | Manda a tarefa pro Hermes (o agente que mexe no PC). Enter abre no terminal pra acompanhar e aprovar; Shift+Enter roda em segundo plano, com a resposta numa notificação |
+| `traduz bom dia`, `explica tar -xzvf` | A IA local traduz (pro português, ou pro inglês se já estiver em português) ou explica o comando parte por parte |
+| `kill firefox` | Encerra o programa (todos os processos com esse nome, só os seus). Shift+Enter força (kill -9). `kill` sozinho lista os que mais gastam memória |
+| `timer 10m chá`, `timer 1h30`, `lembrete 18:30 reunião` | Timer e lembrete: notificação e o som de alarme quando acaba. `timer` sozinho lista os ativos (Shift+Enter cancela). Sobrevivem ao jacundash reiniciar |
+| `email`, `tx` | Textos prontos (Configurações → Textos prontos): o nome acha, o Enter copia |
 | `config` | Configurações do Jacundash (ou **Ctrl+,**) |
 | `gh:react`, `yt lofi`, `protondb elden ring` | Atalhos de busca da web (os do KDE e os seus) |
 | qualquer texto | "Pesquisar na web" no fim da lista |
-| `app`, `vs`, `ssh`... + espaço | Só aquela categoria, sem limite de resultados |
+| `app`, `vs`, `ssh`... + espaço | Só aquela categoria, sem limite de resultados. A palavra vira uma etiqueta do lado do campo (Backspace com o campo vazio tira) |
 
 Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notificação quando terminam.
 
@@ -97,7 +101,7 @@ No Hyprland e no Sway, coloque na config `exec-once = jacundash --fundo` (Hyprla
 
 A aba de configurações (**Ctrl+,** com o jacundash aberto, ou busque `config`) tem tudo: fechar ao perder o foco, busca da web, terminal, tamanho e posição, quais categorias aparecem, quantos resultados cada uma mostra e em que ordem, onde procurar repositórios, editor, serviços favoritos, usuário do SSH de cada aparelho do Tailscale e os plugins (ligar, desligar, abrir a pasta, recarregar). Cada mudança vale na hora.
 
-Ela grava em `~/.config/jacundash/config.toml`, que também dá pra editar na mão:
+Ela grava em `~/.config/jacundash/config.toml` mexendo só no que mudou (os seus comentários ficam). Dá pra editar na mão também: o jacundash percebe sozinho e aplica na hora, igual o `estilo.css`. Plugin ou atalho web novo faz ele reiniciar sozinho quando a janela fechar.
 
 ```toml
 [aparencia]
@@ -135,9 +139,9 @@ limites = { Aplicativos = 8 }
 esconder = []                                          # categorias desligadas
 ```
 
-Atalhos de busca próprios: arquivos `.desktop` no formato do KDE em `~/.config/jacundash/atalhos-web/` (`Keys=aur`, `Name=AUR`, `Query=https://aur.archlinux.org/packages?K=\{@}`). Os do KDE já são lidos sozinhos.
+O instalador já põe uns atalhos de busca: `aur:`, `bp:`/`bulba:` (Bulbapedia), `sb:`/`serebii:`, `ot:`/`otland:`, `ghc:` (código no GitHub) e `ghme:` (seus repositórios). Os seus: arquivos `.desktop` no formato do KDE em `~/.config/jacundash/atalhos-web/` (`Keys=aur`, `Name=AUR`, `Query=https://aur.archlinux.org/packages?K=\{@}`). Os do KDE já são lidos sozinhos.
 
-**Tema:** `~/.config/jacundash/estilo.css` vale por cima do [tema padrão](src/estilo.css). Só precisa do que mudar, por exemplo:
+**Tema:** escuro (o padrão), claro ou do sistema (as cores do KDE, ou o claro/escuro e a cor de destaque do GNOME), em Configurações → Aparência. Pra ir além, `~/.config/jacundash/estilo.css` vale por cima de tudo. Só precisa do que mudar, por exemplo:
 
 ```css
 @define-color jd_destaque #3daee9;

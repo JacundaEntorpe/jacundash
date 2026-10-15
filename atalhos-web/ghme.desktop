@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Service
+Hidden=false
+Name=GitHub (meus repositórios)
+Keys=ghme
+Query=https://github.com/@GITHUB_USER@?tab=repositories&q=\\{@}

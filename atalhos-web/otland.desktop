@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Service
+Hidden=false
+Name=OTLand
+Keys=otland,ot
+Query=https://www.google.com/search?q=site%3Aotland.net+\\{@}

@@ -65,6 +65,13 @@ X-GNOME-Autostart-enabled=true
 FIM
 command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 >/dev/null 2>&1 || true
 
+# Atalhos de busca próprios (aur:, bp:, ghme:...), no formato dos do KDE
+mkdir -p "$CONF/jacundash/atalhos-web"
+usuario="$(git config --global user.name 2>/dev/null || echo "$USER")"
+for f in "$AQUI"/atalhos-web/*.desktop; do
+  sed "s|@GITHUB_USER@|$usuario|" "$f" > "$CONF/jacundash/atalhos-web/$(basename "$f")"
+done
+
 setsid "$BIN" --fundo >/dev/null 2>&1 < /dev/null &
 
 # Tecla de atalho. Automático: a primeira livre de Alt+Space, Meta+Space, Ctrl+Space...

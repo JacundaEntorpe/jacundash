@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Service
+Hidden=false
+Name=Bulbapedia
+Keys=bulba,bp
+Query=https://bulbapedia.bulbagarden.net/w/index.php?search=\\{@}

@@ -10,6 +10,7 @@ mod config_ui;
 mod engine;
 mod konsole;
 mod krunner;
+mod kwin;
 mod marcas;
 mod markdown;
 mod matcher;
@@ -17,6 +18,7 @@ mod model;
 mod previa;
 mod providers;
 mod sistema;
+mod tema;
 mod ui;
 
 use engine::{Engine, Provider};
@@ -112,6 +114,9 @@ fn main() -> glib::ExitCode {
             Arc::new(providers::hermes::Hermes::new(cfg.clone())),
             Arc::new(providers::emoji::Emoji::new()),
             Arc::new(providers::area::Area),
+            Arc::new(providers::processos::Processos),
+            Arc::new(providers::timer::Timers::new()),
+            Arc::new(providers::textos::Textos { cfg: cfg.clone() }),
             Arc::new(providers::sistema::Sistema { cfg: cfg.clone() }),
             Arc::new(providers::navegador::Navegador { cfg: cfg.clone() }),
             // As nossas pastas antes das do Baloo: na repetida, fica a que tem mais ações

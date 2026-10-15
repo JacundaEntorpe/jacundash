@@ -42,6 +42,7 @@ pub fn abrir_em(ui: &Rc<Ui>, pagina_inicial: Option<&str>) {
     pilha.add_titled(&pagina(extras(ui)), Some("extras"), "Extras");
     pilha.add_titled(&pagina(categorias(ui)), Some("categorias"), "Categorias");
     pilha.add_titled(&pagina(acoes(ui)), Some("acoes"), "Ações");
+    pilha.add_titled(&pagina(textos(ui)), Some("textos"), "Textos prontos");
     pilha.add_titled(&pagina(programacao(ui)), Some("programacao"), "Programação");
     pilha.add_titled(&pagina(ia(ui)), Some("ia"), "IA");
     pilha.add_titled(&pagina(plugins(ui)), Some("plugins"), "Plugins");
@@ -221,6 +222,17 @@ fn aparencia(ui: &Rc<Ui>) -> gtk::Box {
         c.append(&opcao(nome, desc, &n));
     }
 
+    let temas = ["escuro", "claro", "sistema"];
+    let escolha = gtk::DropDown::from_strings(&["Escuro", "Claro", "Do sistema (cores do KDE ou do GNOME)"]);
+    escolha.set_selected(temas.iter().position(|t| *t == a.tema).unwrap_or(0) as u32);
+    let u = ui.clone();
+    escolha.connect_selected_notify(move |d| {
+        let t = temas.get(d.selected() as usize).unwrap_or(&"escuro").to_string();
+        mudar(&u, |c| c.aparencia.tema = t);
+        u.aplicar_tema();
+    });
+    c.append(&opcao("Tema", "As cores do jacundash.", &escolha));
+
     c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     let botao = gtk::Button::with_label("Editar o tema");
     botao.connect_clicked(|_| {
@@ -233,13 +245,13 @@ fn aparencia(ui: &Rc<Ui>) -> gtk::Box {
     });
     c.append(&opcao(
         "Cores e fontes",
-        "O tema é um CSS (estilo.css) por cima do padrão: só precisa do que mudar. Depois de salvar, use \"Recarregar\" na aba Plugins.",
+        "O estilo.css vale por cima do tema: só precisa do que mudar. Salvou, já vale.",
         &botao,
     ));
     c
 }
 
-const MODELO_TEMA: &str = "/* Tema do jacundash: vale por cima do padrão. Descomente e mude o que quiser.\n   Depois de salvar: busque \"recarregar\" no jacundash. */\n\n\
+const MODELO_TEMA: &str = "/* Tema do jacundash: vale por cima do padrão. Descomente e mude o que quiser.\n   Salvou, já vale (não precisa reiniciar). */\n\n\
 /* @define-color jd_fundo #19191e; */\n/* @define-color jd_caixa #232328; */\n/* @define-color jd_texto #dcdce1; */\n\
 /* @define-color jd_apagado #8c8c91; */\n/* @define-color jd_destaque #e92f17; */\n/* @define-color jd_selecionado #2e2e35; */\n\n\
 /* .caixa { font-size: 11pt; } */\n";
@@ -357,6 +369,71 @@ fn acoes(ui: &Rc<Ui>) -> gtk::Box {
         c.append(&caixa);
     }
     c
+}
+
+/// Textos prontos: nome e texto, com botão pra tirar e pra pôr mais.
+fn textos(ui: &Rc<Ui>) -> gtk::Box {
+    let c = coluna();
+    c.append(&explicacao("Digitando o nome no jacundash (ou \"tx\" pra ver todos), o Enter copia o texto. Bom pra e-mail, endereço, CPF, respostas que você manda sempre, comandos compridos..."));
+    let lista = gtk::Box::new(gtk::Orientation::Vertical, 10);
+    preencher_textos(ui, &lista);
+    c.append(&lista);
+    let mais = gtk::Button::with_label("Novo texto");
+    mais.set_halign(gtk::Align::Start);
+    let (u, l) = (ui.clone(), lista.clone());
+    mais.connect_clicked(move |_| {
+        mudar(&u, |c| c.textos.push(Default::default()));
+        preencher_textos(&u, &l);
+    });
+    c.append(&mais);
+    c
+}
+
+fn preencher_textos(ui: &Rc<Ui>, lista: &gtk::Box) {
+    while let Some(f) = lista.first_child() {
+        lista.remove(&f);
+    }
+    let textos = ui.cfg.read().unwrap().textos.clone();
+    for (i, t) in textos.iter().enumerate() {
+        let cartao = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        cartao.add_css_class("card");
+        cartao.set_margin_bottom(2);
+        let topo = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let nome = texto_entrada(&t.nome, 20);
+        nome.set_placeholder_text(Some("nome (ex.: email)"));
+        nome.set_hexpand(true);
+        let u = ui.clone();
+        nome.connect_changed(move |e| mudar(&u, |c| if let Some(t) = c.textos.get_mut(i) { t.nome = e.text().into() }));
+        let tirar = gtk::Button::from_icon_name("edit-delete");
+        tirar.add_css_class("flat");
+        tirar.set_tooltip_text(Some("Tirar este texto"));
+        let (u, l) = (ui.clone(), lista.clone());
+        tirar.connect_clicked(move |_| {
+            mudar(&u, |c| {
+                if i < c.textos.len() {
+                    c.textos.remove(i);
+                }
+            });
+            let (u, l) = (u.clone(), l.clone());
+            glib::idle_add_local_once(move || preencher_textos(&u, &l));
+        });
+        topo.append(&nome);
+        topo.append(&tirar);
+        let corpo = gtk::TextView::new();
+        corpo.set_wrap_mode(gtk::WrapMode::WordChar);
+        corpo.buffer().set_text(&t.texto);
+        corpo.set_height_request(60);
+        corpo.set_top_margin(4);
+        corpo.set_left_margin(4);
+        let u = ui.clone();
+        corpo.buffer().connect_changed(move |b| {
+            let texto = b.text(&b.start_iter(), &b.end_iter(), false).to_string();
+            mudar(&u, |c| if let Some(t) = c.textos.get_mut(i) { t.texto = texto })
+        });
+        cartao.append(&topo);
+        cartao.append(&corpo);
+        lista.append(&cartao);
+    }
 }
 
 /// Todas as categorias conhecidas, na ordem da config (as que faltarem vão pro fim).

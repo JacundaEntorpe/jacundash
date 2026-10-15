@@ -21,6 +21,15 @@ pub struct Config {
     pub hermes: Hermes,
     pub extras: Extras,
     pub acoes: Acoes,
+    /// Textos prontos: o nome acha, o Enter copia o texto.
+    pub textos: Vec<Texto>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Texto {
+    pub nome: String,
+    pub texto: String,
 }
 
 /// Quais ações (Shift+Enter e botões da linha) aparecem, por categoria.
@@ -169,6 +178,8 @@ pub struct Aparencia {
     pub topo: i32,
     /// Tamanho dos ícones em pixels.
     pub icone: i32,
+    /// "escuro", "claro" ou "sistema" (as cores do KDE ou do GNOME).
+    pub tema: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -209,13 +220,14 @@ impl Default for Config {
             hermes: Hermes::default(),
             extras: Extras::default(),
             acoes: Acoes::default(),
+            textos: vec![],
         }
     }
 }
 
 impl Default for Aparencia {
     fn default() -> Self {
-        Aparencia { largura: 640, altura_max: 460, topo: 0, icone: 22 }
+        Aparencia { largura: 640, altura_max: 460, topo: 0, icone: 22, tema: "escuro".into() }
     }
 }
 
@@ -233,10 +245,37 @@ impl Default for Busca {
 impl Default for Categorias {
     fn default() -> Self {
         Categorias {
-            ordem: ["Ajuda", "Calculadora", "Conversor", "Comando", "Histórico de comandos", "Recentes", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Emoji", "Área de transferência", "Sistema", "Jacundash", "Abas abertas", "Pastas", "Documentos", "Imagens", "Arquivos", "Histórico do navegador", "Web"].map(String::from).to_vec(),
+            ordem: ["Ajuda", "Calculadora", "Conversor", "Comando", "Histórico de comandos", "Recentes", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Textos prontos", "Emoji", "Área de transferência", "Sistema", "Jacundash", "Abas abertas", "Pastas", "Documentos", "Imagens", "Arquivos", "Histórico do navegador", "Web"].map(String::from).to_vec(),
             limite: 6,
             limites: HashMap::from([("Aplicativos".into(), 8), ("Ajuda".into(), 50)]),
             esconder: vec![],
+        }
+    }
+}
+
+/// O que o jacundash gravou por último (pra não recarregar a própria gravação).
+fn ultimo_salvo() -> &'static std::sync::Mutex<String> {
+    static U: std::sync::OnceLock<std::sync::Mutex<String>> = std::sync::OnceLock::new();
+    U.get_or_init(|| std::sync::Mutex::new(String::new()))
+}
+
+/// Copia os valores de `novo` pra `dest`, mexendo só no que mudou e mantendo os comentários.
+fn mesclar(dest: &mut toml_edit::Table, novo: &toml_edit::Table) {
+    use toml_edit::Item;
+    for (chave, item) in novo.iter() {
+        match (dest.get_mut(chave), item) {
+            (Some(Item::Table(d)), Item::Table(n)) => mesclar(d, n),
+            (Some(Item::Value(d)), Item::Value(n)) => {
+                if d.to_string().trim() != n.to_string().trim() {
+                    let enfeite = d.decor().clone(); // o comentário do lado do valor
+                    *d = n.clone();
+                    *d.decor_mut() = enfeite;
+                }
+            }
+            (Some(d), n) => *d = n.clone(),
+            (None, n) => {
+                dest.insert(chave, n.clone());
+            }
         }
     }
 }
@@ -262,7 +301,10 @@ pub fn home() -> PathBuf {
 impl Config {
     pub fn carregar() -> Config {
         let caminho = pasta_config().join("config.toml");
-        match std::fs::read_to_string(&caminho) {
+        let lido = std::fs::read_to_string(&caminho);
+        // Guarda o que foi lido: a vigia compara com isso pra saber se o arquivo mudou por fora
+        *ultimo_salvo().lock().unwrap() = lido.as_deref().unwrap_or_default().to_string();
+        match lido {
             Ok(texto) => toml::from_str(&texto).unwrap_or_else(|e| {
                 eprintln!("jacundash: {} inválido ({e}), usando o padrão", caminho.display());
                 Config::default()
@@ -271,21 +313,50 @@ impl Config {
         }
     }
 
-    /// Grava o config.toml (a aba de configurações chama isso a cada mudança).
+    /// Grava o config.toml (a aba de configurações chama isso a cada mudança). Só troca os
+    /// valores que mudaram: comentários e a ordem do arquivo ficam como você deixou.
     pub fn salvar(&self) {
         let pasta = pasta_config();
-        let texto = match toml::to_string_pretty(self) {
-            Ok(t) => t,
+        let caminho = pasta.join("config.toml");
+        let novo: toml_edit::DocumentMut = match toml::to_string_pretty(self).map_err(|e| e.to_string()).and_then(|t| t.parse().map_err(|e: toml_edit::TomlError| e.to_string())) {
+            Ok(d) => d,
             Err(e) => return eprintln!("jacundash: não deu pra salvar a config: {e}"),
         };
-        let cabecalho = "# Feito pela aba de configurações do jacundash (Ctrl+, ou busque \"config\").\n\
-                         # Dá pra editar na mão também; depois rode: jacundash --sair\n\n";
-        if let Err(e) = std::fs::create_dir_all(&pasta).and_then(|_| std::fs::write(pasta.join("config.toml"), cabecalho.to_string() + &texto)) {
+        let mut doc: toml_edit::DocumentMut = std::fs::read_to_string(&caminho).ok().and_then(|t| t.parse().ok()).unwrap_or_else(|| {
+            "# Config do jacundash. Dá pra mudar pela aba de configurações (Ctrl+, ou busque \"config\")\n\
+             # ou aqui mesmo: o jacundash percebe sozinho quando o arquivo muda.\n\n"
+                .parse()
+                .unwrap()
+        });
+        mesclar(doc.as_table_mut(), novo.as_table());
+        let texto = doc.to_string();
+        *ultimo_salvo().lock().unwrap() = texto.clone();
+        if let Err(e) = std::fs::create_dir_all(&pasta).and_then(|_| std::fs::write(&caminho, texto)) {
             eprintln!("jacundash: não deu pra salvar a config: {e}");
         }
     }
 
+    /// true se o arquivo tem algo que o próprio jacundash não escreveu (editado na mão).
+    pub fn mudou_por_fora() -> bool {
+        let atual = std::fs::read_to_string(pasta_config().join("config.toml")).unwrap_or_default();
+        *ultimo_salvo().lock().unwrap() != atual
+    }
+
     pub fn limite_de(&self, categoria: &str) -> usize {
         self.categorias.limites.get(categoria).copied().unwrap_or(self.categorias.limite)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn mesclar_mantem_comentarios() {
+        let mut doc: toml_edit::DocumentMut = "# meu comentário\n[busca]\nweb = \"https://x/{}\"  # meu buscador\n".parse().unwrap();
+        let novo: toml_edit::DocumentMut = "[busca]\nweb = \"https://y/{}\"\nterminal = \"kitty\"\n".parse().unwrap();
+        super::mesclar(doc.as_table_mut(), novo.as_table());
+        let t = doc.to_string();
+        assert!(t.contains("# meu comentário"), "{t}");
+        assert!(t.contains("web = \"https://y/{}\"  # meu buscador"), "{t}");
+        assert!(t.contains("terminal = \"kitty\""), "{t}");
     }
 }

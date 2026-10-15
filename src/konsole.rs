@@ -31,28 +31,9 @@ fn ultima_janela(bus: &gio::DBusConnection, servico: &str) -> Option<String> {
     xml.split("<node name=\"").skip(1).filter_map(|p| p.split('"').next()?.parse::<u32>().ok()).max().map(|n| format!("/Windows/{n}"))
 }
 
-/// Traz pra frente a janela do processo `pid` (script do KWin; o Wayland não deixa um app
-/// ativar a janela de outro).
+/// Traz pra frente a janela do processo `pid`.
 fn ativar(pid: u32) {
-    let Some(bus) = bus() else { return };
-    let script = format!(
-        "const ws = workspace.windowList ? workspace.windowList() : workspace.clientList();\n\
-         for (const w of ws) {{ if (w.pid === {pid}) {{ workspace.activeWindow = w; break; }} }}\n"
-    );
-    let arquivo = std::env::temp_dir().join(format!("jacundash-ativar-{}.js", std::process::id()));
-    if std::fs::write(&arquivo, script).is_err() {
-        return;
-    }
-    let nome = "jacundash-ativar";
-    let _ = chamar(&bus, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting", "unloadScript", Some((nome,).to_variant()), Some("(b)"));
-    if let Some(id) = chamar(&bus, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting", "loadScript", Some((arquivo.to_string_lossy().as_ref(), nome).to_variant()), Some("(i)"))
-        .and_then(|v| v.child_value(0).get::<i32>())
-        .filter(|id| *id >= 0)
-    {
-        let _ = chamar(&bus, "org.kde.KWin", &format!("/Scripting/Script{id}"), "org.kde.kwin.Script", "run", None, None);
-        let _ = chamar(&bus, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting", "unloadScript", Some((nome,).to_variant()), Some("(b)"));
-    }
-    let _ = std::fs::remove_file(arquivo);
+    crate::kwin::na_janela(&format!("w.pid === {pid}"), "workspace.activeWindow = w;");
 }
 
 /// Abre uma aba na pasta, no Konsole que já está aberto, e roda `comando` nela (se tiver). O

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Service
+Hidden=false
+Name=Serebii
+Keys=serebii,sb
+Query=https://www.google.com/search?q=site%3Aserebii.net+\\{@}

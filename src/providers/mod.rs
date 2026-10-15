@@ -21,3 +21,6 @@ pub mod recentes;
 pub mod sistema;
 pub mod ajuda;
 pub mod historico;
+pub mod processos;
+pub mod timer;
+pub mod textos;

@@ -123,15 +123,21 @@ pub fn montar(caminho: &str) -> gtk::Box {
     caixa.append(&rotulo(&format!("{}  ·  {quando}", tamanho(meta.len())), "previa-info"));
 
     if IMAGENS.contains(&ext.as_str()) {
-        // Lê já no tamanho da prévia: imagem grande não trava a janela
-        if let Ok(pix) = gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(p, LARGURA - 20, 360, true) {
-            let img = gtk::Picture::for_paintable(&gdk::Texture::for_pixbuf(&pix));
-            img.set_content_fit(gtk::ContentFit::Contain);
-            img.set_can_shrink(true);
-            img.set_size_request(-1, pix.height().min(360));
-            caixa.append(&img);
-            return caixa;
-        }
+        // Carrega por trás, já no tamanho da prévia: foto grande não trava a janela
+        let img = gtk::Picture::new();
+        img.set_content_fit(gtk::ContentFit::Contain);
+        img.set_can_shrink(true);
+        img.set_size_request(-1, 120);
+        caixa.append(&img);
+        let arquivo = gio::File::for_path(p);
+        gtk::glib::spawn_future_local(async move {
+            let Ok(leitura) = arquivo.read_future(gtk::glib::Priority::DEFAULT).await else { return };
+            if let Ok(pix) = gtk::gdk_pixbuf::Pixbuf::from_stream_at_scale_future(&leitura, LARGURA - 20, 360, true).await {
+                img.set_size_request(-1, pix.height().min(360));
+                img.set_paintable(Some(&gdk::Texture::for_pixbuf(&pix)));
+            }
+        });
+        return caixa;
     }
     if meta.len() < 50 * 1024 * 1024 {
         if let Some(texto) = comeco(p) {

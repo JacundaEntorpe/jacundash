@@ -27,6 +27,19 @@ pub struct Ia {
 
 const LIBERAR: &[&str] = &["liberar", "descarregar", "parar", "stop"];
 
+/// Atalhos: "traduz ..." e "explica ..." trocam as instruções do modelo (com ou sem o "ia").
+/// Devolve (o que aparece no item, as instruções).
+fn modo(pergunta: &str, padrao: &str) -> (&'static str, String) {
+    let p = crate::matcher::norm(pergunta);
+    if ["traduz ", "traduza ", "traduzir ", "translate "].iter().any(|x| p.starts_with(x)) {
+        return ("Traduzir", "Traduza o texto depois de \"traduz\" pro português do Brasil; se ele já estiver em português, traduza pro inglês. Responda só com a tradução, sem comentários.".into());
+    }
+    if ["explica ", "explique ", "explain "].iter().any(|x| p.starts_with(x)) {
+        return ("Explicar", "Explique em português do Brasil, curto e direto, o que esse comando (ou trecho) faz, parte por parte, numa lista. Se tiver algo perigoso, avise.".into());
+    }
+    ("Perguntar", padrao.to_string())
+}
+
 fn agente(segundos: u64) -> ureq::Agent {
     ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(segundos))).build().into()
 }
@@ -79,7 +92,7 @@ impl Ia {
             atualizar(&|c| c.modelo = nome.clone());
             let corpo = json!({
                 "model": nome, "stream": true, "think": false, "keep_alive": cfg.manter_carregado,
-                "messages": [{"role": "system", "content": cfg.instrucoes}, {"role": "user", "content": pergunta}],
+                "messages": [{"role": "system", "content": modo(&pergunta, &cfg.instrucoes).1}, {"role": "user", "content": pergunta}],
             });
             let resposta = match agente(600).post(format!("{}/api/chat", base(&cfg.url))).send_json(&corpo) {
                 Ok(r) => r,
@@ -157,13 +170,14 @@ impl Provider for Ia {
     fn keyword(&self) -> &str {
         "ia"
     }
-    fn needs_keyword(&self) -> bool {
-        true
-    }
     fn query(&self, q: &Query) -> Vec<Item> {
         let cfg = self.cfg.read().unwrap().ia.clone();
         let nome = if cfg.modelo.is_empty() { "modelo local".to_string() } else { cfg.modelo.clone() };
         let pergunta = q.text.trim().to_string();
+        // Sem o "ia", só os atalhos "traduz ..." e "explica ..."
+        if !q.with_keyword && (modo(&pergunta, "").0 == "Perguntar" || pergunta.split_whitespace().count() < 2) {
+            return vec![];
+        }
         if pergunta.is_empty() {
             return vec![
                 Item::new(format!("Pergunte algo pro {nome}"), Effect::None)
@@ -179,7 +193,7 @@ impl Provider for Ia {
         let conversa = self.conversas.lock().unwrap().get(&pergunta).cloned();
         let Some(c) = conversa else {
             return vec![
-                Item::new(format!("Perguntar: {pergunta}"), Effect::Callback { data: format!("perguntar:{pergunta}") })
+                Item::new(format!("{}: {pergunta}", modo(&pergunta, "").0), Effect::Callback { data: format!("perguntar:{pergunta}") })
                     .subtitle(format!("{nome}  ·  Enter manda, a resposta aparece aqui"))
                     .icon("dialog-messages")
                     .score(1.0),

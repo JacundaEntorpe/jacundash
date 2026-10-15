@@ -21,6 +21,9 @@ pub struct Ui {
     pub app: gtk::Application,
     caixa: gtk::Box,
     entry: gtk::Entry,
+    /// Etiqueta da palavra-chave ("vs " vira "Repositórios" do lado do campo).
+    etiqueta: gtk::Label,
+    palavra_ativa: RefCell<Option<String>>,
     list: gtk::ListBox,
     scroll: gtk::ScrolledWindow,
     rodape: gtk::Label,
@@ -36,6 +39,13 @@ pub struct Ui {
     pub configuracoes: RefCell<Option<gtk::Window>>,
     /// Resultados fixados no topo e escondidos.
     pub marcas: RefCell<Marcas>,
+    /// Cores do tema (claro/sistema) e o estilo.css do usuário: recarregam sem reiniciar.
+    css_tema: gtk::CssProvider,
+    css_usuario: gtk::CssProvider,
+    /// Vigias da pasta de config (precisam ficar vivas).
+    vigias: RefCell<Vec<gio::FileMonitor>>,
+    /// Plugin ou atalho web mudou: reinicia quando a janela fechar.
+    reiniciar_ao_fechar: std::cell::Cell<bool>,
     /// Ações que já apareceram, por categoria (a aba de configurações lista elas pra esconder).
     pub acoes_vistas: RefCell<std::collections::BTreeMap<String, Vec<String>>>,
     tx: async_channel::Sender<Batch>,
@@ -61,7 +71,7 @@ struct Estado {
 
 impl Ui {
     pub fn new(app: &gtk::Application, engine: Engine, cfg: Compartilhada, uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>, recentes: Arc<Mutex<Vec<Item>>>) -> Rc<Ui> {
-        carregar_css();
+        let (css_tema, css_usuario) = carregar_css();
         let cfg_compartilhada = cfg;
         let cfg = cfg_compartilhada.read().unwrap().clone();
         let window = gtk::ApplicationWindow::builder()
@@ -79,7 +89,7 @@ impl Ui {
         caixa.set_size_request(cfg.aparencia.largura, -1);
 
         let entry = gtk::Entry::builder()
-            .placeholder_text("Buscar apps, contas, web... (gh:texto, =2^10)")
+            .placeholder_text("Buscar apps, contas, web... (help mostra tudo)")
             .primary_icon_name("system-search-symbolic")
             .hexpand(true)
             .build();
@@ -121,7 +131,15 @@ impl Ui {
         corpo.append(&scroll);
         corpo.append(&previa_rolagem);
 
-        caixa.append(&entry);
+        let etiqueta = gtk::Label::new(None);
+        etiqueta.add_css_class("etiqueta");
+        etiqueta.set_visible(false);
+        etiqueta.set_valign(gtk::Align::Center);
+        let linha_busca = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        linha_busca.add_css_class("linha-busca");
+        linha_busca.append(&etiqueta);
+        linha_busca.append(&entry);
+        caixa.append(&linha_busca);
         caixa.append(&corpo);
         caixa.append(&rodape);
         window.set_child(Some(&caixa));
@@ -135,6 +153,8 @@ impl Ui {
             app: app.clone(),
             caixa,
             entry,
+            etiqueta,
+            palavra_ativa: RefCell::default(),
             list,
             scroll,
             rodape,
@@ -145,6 +165,10 @@ impl Ui {
             cfg: cfg_compartilhada,
             configuracoes: RefCell::default(),
             marcas: RefCell::new(Marcas::carregar()),
+            css_tema,
+            css_usuario,
+            vigias: RefCell::default(),
+            reiniciar_ao_fechar: std::cell::Cell::new(false),
             acoes_vistas: RefCell::new(
                 std::fs::read_to_string(crate::config::pasta_estado().join("acoes-vistas.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default(),
             ),
@@ -156,6 +180,8 @@ impl Ui {
         });
 
         *ui.eu.borrow_mut() = Rc::downgrade(&ui);
+        ui.aplicar_tema();
+        ui.vigiar();
 
         // Respostas dos provedores chegando
         let u = ui.clone();
@@ -206,7 +232,21 @@ impl Ui {
         });
 
         let u = ui.clone();
-        ui.entry.connect_changed(move |_| u.buscar());
+        ui.entry.connect_changed(move |_| {
+            // "vs " no começo vira a etiqueta "Repositórios" e sai do campo
+            if u.palavra_ativa.borrow().is_none() {
+                let texto = u.entry.text().to_string();
+                if let Some((palavra, resto)) = texto.split_once(' ') {
+                    if u.engine.providers.iter().any(|p| p.keyword() == palavra) {
+                        u.trocar_etiqueta(Some(palavra.to_string()));
+                        u.entry.set_text(resto); // isso chama de novo, já com a etiqueta
+                        u.entry.set_position(-1);
+                        return;
+                    }
+                }
+            }
+            u.buscar()
+        });
 
         let u = ui.clone();
         ui.list.connect_row_activated(move |_, row| {
@@ -246,6 +286,7 @@ impl Ui {
 
     pub fn mostrar_com(self: &Rc<Self>, texto: &str) {
         engine::VISIVEL.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.trocar_etiqueta(None);
         self.entry.set_text(texto);
         self.buscar();
         self.window.present();
@@ -253,9 +294,30 @@ impl Ui {
         self.entry.set_position(-1);
     }
 
+    /// O texto da busca com a palavra-chave da etiqueta na frente ("vs" + "poke" = "vs poke").
+    fn texto_completo(&self) -> String {
+        let texto = self.entry.text().to_string();
+        match self.palavra_ativa.borrow().as_ref() {
+            Some(p) => format!("{p} {texto}"),
+            None => texto,
+        }
+    }
+
+    fn trocar_etiqueta(&self, palavra: Option<String>) {
+        let categoria = palavra.as_ref().and_then(|p| self.engine.providers.iter().find(|x| x.keyword() == p)).map(|p| p.category().to_string());
+        self.etiqueta.set_text(categoria.as_deref().unwrap_or(""));
+        self.etiqueta.set_visible(categoria.is_some());
+        self.entry.set_placeholder_text(Some(if categoria.is_some() { "buscar aqui dentro... (Backspace volta)" } else { "Buscar apps, contas, web... (help mostra tudo)" }));
+        *self.palavra_ativa.borrow_mut() = palavra;
+    }
+
     pub fn esconder(&self) {
         engine::VISIVEL.store(false, std::sync::atomic::Ordering::Relaxed);
         self.window.set_visible(false);
+        if self.reiniciar_ao_fechar.get() {
+            self.recarregar();
+            return;
+        }
         // Guarda as ações vistas (pra aba de configurações) quando a janela fecha
         if let Ok(json) = serde_json::to_string(&*self.acoes_vistas.borrow()) {
             let _ = std::fs::create_dir_all(crate::config::pasta_estado());
@@ -266,13 +328,72 @@ impl Ui {
     /// Refaz a busca sem limpar a lista nem perder a linha selecionada: cada provedor
     /// troca os seus resultados quando responder.
     fn rebuscar(self: &Rc<Self>) {
-        let texto = self.entry.text().to_string();
+        let texto = self.texto_completo();
         let geracao = {
             let mut e = self.estado.borrow_mut();
             e.geracao += 1;
             e.geracao
         };
         self.engine.search(&texto, geracao, &self.tx, &self.cfg.read().unwrap());
+    }
+
+    /// As cores do tema escolhido (claro, escuro ou do sistema).
+    pub fn aplicar_tema(&self) {
+        let tema = self.cfg.read().unwrap().aparencia.tema.clone();
+        self.css_tema.load_from_string(&crate::tema::css(&tema));
+    }
+
+    /// Vigia ~/.config/jacundash: config.toml editado na mão recarrega na hora, estilo.css troca
+    /// o visual na hora, e plugin ou atalho web novo reinicia o jacundash quando a janela fechar.
+    fn vigiar(self: &Rc<Self>) {
+        let base = pasta_config();
+        let plugins = base.join("plugins");
+        let mut pastas = vec![base.clone(), plugins.clone(), base.join("atalhos-web")];
+        if let Ok(e) = std::fs::read_dir(&plugins) {
+            pastas.extend(e.flatten().map(|x| x.path()).filter(|p| p.is_dir()));
+        }
+        for pasta in pastas {
+            let _ = std::fs::create_dir_all(&pasta);
+            let Ok(vigia) = gio::File::for_path(&pasta).monitor_directory(gio::FileMonitorFlags::WATCH_MOVES, gio::Cancellable::NONE) else { continue };
+            vigia.set_rate_limit(500);
+            let fraco = Rc::downgrade(self);
+            let base = base.clone();
+            vigia.connect_changed(move |_, arquivo, _, evento| {
+                use gio::FileMonitorEvent as E;
+                if !matches!(evento, E::ChangesDoneHint | E::Created | E::Deleted | E::MovedIn | E::MovedOut | E::Renamed) {
+                    return;
+                }
+                let Some(u) = fraco.upgrade() else { return };
+                let Some(caminho) = arquivo.path() else { return };
+                let nome = caminho.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                if caminho.parent() == Some(base.as_path()) && nome == "config.toml" {
+                    if crate::config::Config::mudou_por_fora() {
+                        *u.cfg.write().unwrap() = crate::config::Config::carregar();
+                        u.aplicar_aparencia();
+                        u.aplicar_tema();
+                    }
+                } else if caminho.parent() == Some(base.as_path()) && nome == "estilo.css" {
+                    u.recarregar_estilo();
+                } else if caminho.parent() != Some(base.as_path()) || nome == "plugins" || nome == "atalhos-web" {
+                    // Plugins e atalhos web são carregados uma vez só: reinicia (com a janela fechada)
+                    if u.window.is_visible() {
+                        u.reiniciar_ao_fechar.set(true);
+                    } else {
+                        u.recarregar();
+                    }
+                }
+            });
+            self.vigias.borrow_mut().push(vigia);
+        }
+    }
+
+    fn recarregar_estilo(&self) {
+        let arquivo = pasta_config().join("estilo.css");
+        if arquivo.exists() {
+            self.css_usuario.load_from_path(&arquivo);
+        } else {
+            self.css_usuario.load_from_string("");
+        }
     }
 
     /// Aplica largura, altura e distância do topo depois de mudar a config.
@@ -297,7 +418,7 @@ impl Ui {
     }
 
     fn buscar(self: &Rc<Self>) {
-        let texto = self.entry.text().to_string();
+        let texto = self.texto_completo();
         let geracao = {
             let mut e = self.estado.borrow_mut();
             e.geracao += 1;
@@ -429,7 +550,7 @@ impl Ui {
     /// Os botões de ação só ocupam espaço na linha selecionada e na com o mouse em cima: nas
     /// outras, o espaço fica pro texto.
     fn mostrar_botoes(&self) {
-        let e = self.estado.borrow();
+        let Ok(e) = self.estado.try_borrow() else { return };
         for (i, b) in self.botoes.borrow().iter().enumerate() {
             if let Some(b) = b {
                 b.set_visible(i == e.selecionado || e.hover == Some(i));
@@ -615,16 +736,30 @@ impl Ui {
             let u = eu.clone();
             direito.connect_pressed(move |_, _, _, _| u.abrir_acoes(indice));
             row.add_controller(direito);
+            // O GTK avisa entrar/sair no meio do redesenho (a linha embaixo do mouse some): aí o
+            // estado está ocupado, e o aviso fica pra quando ele terminar
             let mouse = gtk::EventControllerMotion::new();
             let u = eu.clone();
             mouse.connect_enter(move |_, _, _| {
-                u.estado.borrow_mut().hover = Some(indice);
-                u.mostrar_botoes();
+                let u = u.clone();
+                glib::idle_add_local_once(move || {
+                    if let Ok(mut e) = u.estado.try_borrow_mut() {
+                        e.hover = Some(indice);
+                    }
+                    u.mostrar_botoes();
+                });
             });
             let u = eu.clone();
             mouse.connect_leave(move |_| {
-                u.estado.borrow_mut().hover = None;
-                u.mostrar_botoes();
+                let u = u.clone();
+                glib::idle_add_local_once(move || {
+                    if let Ok(mut e) = u.estado.try_borrow_mut() {
+                        if e.hover == Some(indice) {
+                            e.hover = None;
+                        }
+                    }
+                    u.mostrar_botoes();
+                });
             });
             row.add_controller(mouse);
         }
@@ -636,6 +771,12 @@ impl Ui {
 
     fn tecla(self: &Rc<Self>, tecla: gdk::Key, mods: gdk::ModifierType) -> glib::Propagation {
         let shift = mods.contains(gdk::ModifierType::SHIFT_MASK);
+        // Backspace com o campo vazio tira a etiqueta da palavra-chave
+        if tecla == gdk::Key::BackSpace && self.entry.text().is_empty() && self.palavra_ativa.borrow().is_some() {
+            self.trocar_etiqueta(None);
+            self.buscar();
+            return glib::Propagation::Stop;
+        }
         if mods.contains(gdk::ModifierType::CONTROL_MASK) && tecla == gdk::Key::comma {
             self.esconder();
             crate::config_ui::abrir(self);
@@ -751,6 +892,7 @@ impl Ui {
                 _ => eprintln!("jacundash: ação interna desconhecida: {action}"),
             },
             Effect::Query { text } => {
+                self.trocar_etiqueta(None);
                 self.entry.set_text(text);
                 self.entry.set_position(-1);
             }
@@ -841,18 +983,21 @@ fn rodar(cmd: &[String], terminal: bool, cwd: Option<&str>, segurar: bool, aba: 
     }
 }
 
-fn carregar_css() {
+/// Estilo padrão, por cima as cores do tema, e por cima de tudo o estilo.css do usuário.
+fn carregar_css() -> (gtk::CssProvider, gtk::CssProvider) {
     let display = gdk::Display::default().expect("sem display");
     let padrao = gtk::CssProvider::new();
     padrao.load_from_string(CSS_PADRAO);
     gtk::style_context_add_provider_for_display(&display, &padrao, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
-    // ~/.config/jacundash/estilo.css por cima do padrão
-    let usuario = pasta_config().join("estilo.css");
-    if usuario.exists() {
-        let p = gtk::CssProvider::new();
-        p.load_from_path(&usuario);
-        gtk::style_context_add_provider_for_display(&display, &p, gtk::STYLE_PROVIDER_PRIORITY_USER);
+    let tema = gtk::CssProvider::new();
+    gtk::style_context_add_provider_for_display(&display, &tema, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    let usuario = gtk::CssProvider::new();
+    let arquivo = pasta_config().join("estilo.css");
+    if arquivo.exists() {
+        usuario.load_from_path(&arquivo);
     }
+    gtk::style_context_add_provider_for_display(&display, &usuario, gtk::STYLE_PROVIDER_PRIORITY_USER);
+    (tema, usuario)
 }
 
 /// No Wayland com layer-shell (KDE, Hyprland, Sway...): colada no topo, por cima de tudo.

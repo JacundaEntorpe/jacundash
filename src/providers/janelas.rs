@@ -14,6 +14,21 @@ struct Janela {
     app: String,
     icone: String,
     ir: Effect,
+    /// (rótulo, ícone, efeito): fechar, minimizar, maximizar, mandar pra outra área de trabalho
+    acoes: Vec<(&'static str, &'static str, Effect)>,
+}
+
+const FECHAR: (&str, &str) = ("Fechar a janela", "window-close");
+const MINIMIZAR: (&str, &str) = ("Minimizar", "window-minimize");
+const MAXIMIZAR: (&str, &str) = ("Maximizar ou restaurar", "window-maximize");
+const MOVER: (&str, &str) = ("Mandar pra próxima área de trabalho", "go-next");
+
+fn acao(qual: (&'static str, &'static str), efeito: Effect) -> (&'static str, &'static str, Effect) {
+    (qual.0, qual.1, efeito)
+}
+
+fn sh(cmd: String) -> Effect {
+    Effect::Exec { cmd: vec!["sh".into(), "-c".into(), cmd], terminal: false, cwd: None, hold: false, tab: None }
 }
 
 fn env(nome: &str) -> bool {
@@ -57,11 +72,18 @@ fn listar() -> Vec<Janela> {
             .filter(|c| c.get("mapped").and_then(|m| m.as_bool()).unwrap_or(true))
             .map(|c| {
                 let classe = texto(c, "class");
+                let a = format!("address:{}", texto(c, "address"));
                 Janela {
                     titulo: texto(c, "title"),
                     icone: classe.to_lowercase(),
                     app: classe,
-                    ir: Effect::exec(&["hyprctl", "dispatch", "focuswindow", &format!("address:{}", texto(c, "address"))]),
+                    ir: Effect::exec(&["hyprctl", "dispatch", "focuswindow", &a]),
+                    acoes: vec![
+                        acao(FECHAR, Effect::exec(&["hyprctl", "dispatch", "closewindow", &a])),
+                        acao(MINIMIZAR, Effect::exec(&["hyprctl", "dispatch", "movetoworkspacesilent", &format!("special:minimizadas,{a}")])),
+                        acao(MAXIMIZAR, sh(format!("hyprctl --batch 'dispatch focuswindow {a}; dispatch fullscreen 1'"))),
+                        acao(MOVER, Effect::exec(&["hyprctl", "dispatch", "movetoworkspacesilent", &format!("r+1,{a}")])),
+                    ],
                 }
             })
             .collect();
@@ -75,7 +97,16 @@ fn listar() -> Vec<Janela> {
             .map(|w| {
                 let app = texto(w, "app_id");
                 let id = w.get("id").and_then(|i| i.as_u64()).unwrap_or(0).to_string();
-                Janela { titulo: texto(w, "title"), icone: app.to_lowercase(), app, ir: Effect::exec(&["niri", "msg", "action", "focus-window", "--id", &id]) }
+                Janela {
+                    titulo: texto(w, "title"),
+                    icone: app.to_lowercase(),
+                    app,
+                    ir: Effect::exec(&["niri", "msg", "action", "focus-window", "--id", &id]),
+                    acoes: vec![
+                        acao(FECHAR, Effect::exec(&["niri", "msg", "action", "close-window", "--id", &id])),
+                        acao(MAXIMIZAR, sh(format!("niri msg action focus-window --id {id} && niri msg action maximize-column"))),
+                    ],
+                }
             })
             .collect();
     }
@@ -91,7 +122,19 @@ fn listar() -> Vec<Janela> {
                     .unwrap_or_default()
                     .to_string();
                 let id = n.get("id").and_then(|i| i.as_u64()).unwrap_or(0);
-                saida.push(Janela { titulo: texto(n, "name"), icone: app.to_lowercase(), app, ir: Effect::exec(&["swaymsg", &format!("[con_id={id}] focus")]) });
+                let c = |acao: &str| Effect::exec(&["swaymsg", &format!("[con_id={id}] {acao}")]);
+                saida.push(Janela {
+                    titulo: texto(n, "name"),
+                    icone: app.to_lowercase(),
+                    app,
+                    ir: c("focus"),
+                    acoes: vec![
+                        acao(FECHAR, c("kill")),
+                        acao(MINIMIZAR, c("move scratchpad")),
+                        acao(MAXIMIZAR, c("fullscreen toggle")),
+                        acao(MOVER, c("move container to workspace next")),
+                    ],
+                });
             }
             for filhos in ["nodes", "floating_nodes"] {
                 for f in n.get(filhos).and_then(|f| f.as_array()).into_iter().flatten() {
@@ -113,6 +156,12 @@ fn listar() -> Vec<Janela> {
                 icone: if m.icon.is_empty() { icone_do_titulo(&m.text) } else { m.icon },
                 titulo: m.text,
                 app: String::new(),
+                acoes: vec![
+                    acao(FECHAR, Effect::Callback { data: format!("fechar:{}", m.id) }),
+                    acao(MINIMIZAR, Effect::Callback { data: format!("minimizar:{}", m.id) }),
+                    acao(MAXIMIZAR, Effect::Callback { data: format!("maximizar:{}", m.id) }),
+                    acao(MOVER, Effect::Callback { data: format!("mover:{}", m.id) }),
+                ],
                 ir: Effect::Callback { data: m.id },
             })
             .collect();
@@ -120,13 +169,24 @@ fn listar() -> Vec<Janela> {
     if env("DISPLAY") && !env("WAYLAND_DISPLAY") {
         // X11: wmctrl -lx -> "0x03a00004  0 konsole.konsole  host Título"
         let Ok(out) = Command::new("wmctrl").arg("-lx").output() else { return vec![] };
+        let mesas = Command::new("wmctrl").arg("-d").output().map(|o| String::from_utf8_lossy(&o.stdout).lines().count().max(1)).unwrap_or(1);
+        let xdotool = crate::sistema::tem("xdotool");
         return String::from_utf8_lossy(&out.stdout)
             .lines()
             .filter_map(|l| {
                 let palavras: Vec<&str> = l.split_whitespace().collect();
                 let (id, classe) = (*palavras.first()?, palavras.get(2)?.rsplit('.').next()?.to_string());
+                let mesa: usize = palavras.get(1)?.parse().unwrap_or(0);
                 let titulo = depois_de(l, 4)?.to_string();
-                Some(Janela { titulo, icone: classe.to_lowercase(), app: classe, ir: Effect::exec(&["wmctrl", "-ia", id]) })
+                let mut acoes = vec![
+                    acao(FECHAR, Effect::exec(&["wmctrl", "-ic", id])),
+                    acao(MAXIMIZAR, Effect::exec(&["wmctrl", "-ir", id, "-b", "toggle,maximized_vert,maximized_horz"])),
+                    acao(MOVER, Effect::exec(&["wmctrl", "-ir", id, "-t", &((mesa + 1) % mesas).to_string()])),
+                ];
+                if xdotool {
+                    acoes.insert(1, acao(MINIMIZAR, Effect::exec(&["xdotool", "windowminimize", id])));
+                }
+                Some(Janela { titulo, icone: classe.to_lowercase(), app: classe, ir: Effect::exec(&["wmctrl", "-ia", id]), acoes })
             })
             .collect();
     }
@@ -151,13 +211,30 @@ impl Provider for Janelas {
                 let nota = matcher::score(&q.norm, &j.titulo, &j.app);
                 (nota > 0.0).then(|| {
                     // Um pouco abaixo dos apps: "konsole" abre o app novo antes de ir pra janela
-                    Item::new(j.titulo, j.ir).subtitle(j.app).icon(j.icone).score(nota * 0.95)
+                    let mut item = Item::new(j.titulo, j.ir).subtitle(j.app).icon(j.icone).score(nota * 0.95);
+                    for (rotulo, icone, efeito) in j.acoes {
+                        item = item.action(rotulo, icone, efeito);
+                    }
+                    item
                 })
             })
             .collect()
     }
-    fn callback(&self, id: &str) -> Vec<Effect> {
-        krunner::rodar("org.kde.KWin", "/WindowsRunner", id, "");
+    fn callback(&self, data: &str) -> Vec<Effect> {
+        // KDE: "fechar:0_{uuid}" mexe na janela por um script do KWin; só o id = ir pra ela
+        let Some((op, id)) = data.split_once(':') else {
+            krunner::rodar("org.kde.KWin", "/WindowsRunner", data, "");
+            return vec![];
+        };
+        let uuid = id.trim_start_matches("0_").replace('"', "");
+        let js = match op {
+            "fechar" => "w.closeWindow();",
+            "minimizar" => "w.minimized = true;",
+            "maximizar" => "workspace.activeWindow = w; workspace.slotWindowMaximize();",
+            "mover" => "const ds = workspace.desktops; const i = ds.indexOf(w.desktops[0]); w.desktops = [ds[(i + 1) % ds.length]];",
+            _ => return vec![],
+        };
+        crate::kwin::na_janela(&format!("String(w.internalId) === \"{uuid}\""), js);
         vec![]
     }
 }
@@ -171,5 +248,20 @@ mod tests {
         assert_eq!(icone_do_titulo("Amigos - Discord"), "discord");
         assert_eq!(icone_do_titulo("krocket : claude — Konsole"), "konsole");
         assert_eq!(depois_de("0x03a00004  0 konsole.Konsole  pc  meu  título", 4), Some("meu  título"));
+    }
+}
+
+#[cfg(test)]
+mod teste_kde {
+    /// Minimiza e traz de volta uma janela de verdade (a do Discord): só roda com --ignored.
+    #[test]
+    #[ignore]
+    fn minimizar_e_voltar() {
+        let ms = crate::krunner::buscar("org.kde.KWin", "/WindowsRunner", "").unwrap();
+        let j = ms.iter().find(|m| m.id.starts_with("0_") && m.text.contains("Discord")).expect("sem janela do Discord");
+        use crate::engine::Provider;
+        super::Janelas.callback(&format!("minimizar:{}", j.id));
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        super::Janelas.callback(&j.id); // ir pra ela traz de volta
     }
 }

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Service
+Hidden=false
+Name=GitHub (código)
+Keys=ghc
+Query=https://github.com/search?type=code&q=\\{@}
