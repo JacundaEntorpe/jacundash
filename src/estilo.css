@@ -42,7 +42,7 @@ entry.busca image {
     color: @jd_apagado;
 }
 
-scrolledwindow {
+.caixa scrolledwindow {
     margin-top: 4px;
 }
 

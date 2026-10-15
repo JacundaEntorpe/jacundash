@@ -21,6 +21,9 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 |---|---|
 | `kat` | Apps instalados (os mesmos do menu do desktop). Os que você mais abre sobem |
 | `2^10*3`, `15% de 80`, `sqrt(2)`, `=1/3` | Calculadora. Enter copia o resultado |
+| `disc` | Janelas abertas (Enter vai pra janela). `ja` lista todas |
+| `relatorio` (3+ letras) | Arquivos e pastas, separados em Pastas, Imagens, Documentos... Quem tem a busca no nome vem antes de quem só tem no conteúdo. `ar texto` mostra só arquivos |
+| `config` | Configurações do Jacundash (ou **Ctrl+,**) |
 | `gh:react`, `yt lofi`, `protondb elden ring` | Atalhos de busca da web (os do KDE e os seus) |
 | qualquer texto | "Pesquisar na web" no fim da lista |
 | `app`, `ssh`... + espaço | Só aquela categoria, sem limite de resultados |
@@ -44,6 +47,7 @@ Ligue o comando `jacundash` a uma tecla. Ele abre se estiver fechado e fecha se 
 |---|---|
 | `jacundash` | abre, ou fecha se já estiver aberto |
 | `jacundash "texto"` | abre já buscando o texto |
+| `jacundash --config` | abre as configurações |
 | `jacundash --fundo` | só deixa rodando em segundo plano |
 | `jacundash --sair` | encerra (o próximo `jacundash` recarrega config, tema e plugins) |
 
@@ -53,10 +57,14 @@ Ligue o comando `jacundash` a uma tecla. Ele abre se estiver fechado e fecha se 
 |---|---|---|---|---|
 | Janela no topo, por cima de tudo | ✓ | ✓ | janela comum | janela comum (o GNOME não tem layer-shell) |
 | Apps, calculadora, web, plugins | ✓ | ✓ | ✓ | ✓ |
+| Janelas abertas | KWin | hyprctl, swaymsg, niri | `wmctrl` | — |
+| Arquivos | Baloo (nome e conteúdo) | `plocate`/`locate`, ou `fd` | `plocate`/`locate`, ou `fd` | `plocate`/`locate`, ou `fd` |
 
 ## Configurar
 
-`~/.config/jacundash/config.toml`, só com o que for mudar:
+A aba de configurações (**Ctrl+,** com o jacundash aberto, ou busque `config`) tem tudo: fechar ao perder o foco, busca da web, terminal, tamanho e posição, quais categorias aparecem, quantos resultados cada uma mostra e em que ordem, e os plugins (ligar, desligar, abrir a pasta, recarregar). Cada mudança vale na hora.
+
+Ela grava em `~/.config/jacundash/config.toml`, que também dá pra editar na mão:
 
 ```toml
 [aparencia]
@@ -92,7 +100,5 @@ Qualquer programa vira plugin: ele recebe a busca em JSON e devolve os resultado
 
 ## Próximos passos
 
-- Aba de configurações dentro do próprio app (plugins, categorias, aparência, tecla)
-- Janelas abertas e arquivos (com uma versão pra cada desktop)
 - Repositórios, pastas, git, docker, serviços, Tailscale e IA (o que hoje está no krocket)
 - Fixar e esconder itens, abrir com o mesmo atalho já configurado no desktop

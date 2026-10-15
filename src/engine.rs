@@ -92,19 +92,19 @@ pub fn arrange(engine: &Engine, results: &[Option<Vec<Item>>], cfg: &Config, key
     let mut grupos: Vec<Grupo> = Vec::new();
     for (i, r) in results.iter().enumerate() {
         let Some(itens) = r else { continue };
-        if itens.is_empty() {
-            continue;
-        }
-        let categoria = engine.providers[i].category();
-        let ordem = cfg.categorias.ordem.iter().position(|c| c == categoria).unwrap_or(usize::MAX);
-        let g = match grupos.iter_mut().position(|g| g.categoria == categoria) {
-            Some(g) => &mut grupos[g],
-            None => {
-                grupos.push(Grupo { categoria, melhor: 0.0, ordem, itens: vec![] });
-                grupos.last_mut().unwrap()
-            }
-        };
         for it in itens {
+            let categoria = it.category.as_deref().unwrap_or(engine.providers[i].category());
+            if cfg.categorias.esconder.iter().any(|c| c == categoria) {
+                continue;
+            }
+            let g = match grupos.iter().position(|g| g.categoria == categoria) {
+                Some(g) => &mut grupos[g],
+                None => {
+                    let ordem = cfg.categorias.ordem.iter().position(|c| c == categoria).unwrap_or(usize::MAX);
+                    grupos.push(Grupo { categoria, melhor: 0.0, ordem, itens: vec![] });
+                    grupos.last_mut().unwrap()
+                }
+            };
             g.melhor = g.melhor.max(it.score);
             g.itens.push((i, it));
         }

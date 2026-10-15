@@ -24,6 +24,8 @@ pub enum Effect {
     Query { text: String },
     /// Devolve pro provedor que criou o resultado decidir (o plugin recebe `data`).
     Callback { data: String },
+    /// Coisas do próprio jacundash ("config" abre as configurações).
+    Internal { action: String },
     /// Não faz nada (linhas só de informação).
     None,
 }
@@ -50,11 +52,15 @@ pub struct Item {
     pub effect: Effect,
     #[serde(default)]
     pub actions: Vec<Action>,
+    /// Categoria deste item, se for diferente da do provedor (os arquivos se separam em
+    /// "Pastas", "Imagens"...).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
 }
 
 impl Item {
     pub fn new(title: impl Into<String>, effect: Effect) -> Self {
-        Item { title: title.into(), subtitle: String::new(), icon: String::new(), score: 0.5, effect, actions: vec![] }
+        Item { title: title.into(), subtitle: String::new(), icon: String::new(), score: 0.5, effect, actions: vec![], category: None }
     }
     pub fn subtitle(mut self, s: impl Into<String>) -> Self {
         self.subtitle = s.into();
@@ -66,6 +72,14 @@ impl Item {
     }
     pub fn score(mut self, s: f32) -> Self {
         self.score = s;
+        self
+    }
+    pub fn category(mut self, c: impl Into<String>) -> Self {
+        self.category = Some(c.into());
+        self
+    }
+    pub fn action(mut self, label: impl Into<String>, icon: impl Into<String>, effect: Effect) -> Self {
+        self.actions.push(Action { label: label.into(), icon: icon.into(), effect });
         self
     }
 }

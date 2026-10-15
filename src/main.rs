@@ -5,7 +5,9 @@
 //! estiver aberto. Por isso abre na hora.
 
 mod config;
+mod config_ui;
 mod engine;
+mod krunner;
 mod matcher;
 mod model;
 mod providers;
@@ -27,6 +29,7 @@ fn main() -> glib::ExitCode {
             "jacundash: lançador com categorias e plugins\n\n\
              jacundash             abre (ou fecha, se já estiver aberto). Ligue isso a uma tecla.\n\
              jacundash \"texto\"     abre já buscando o texto\n\
+             jacundash --config    abre as configurações\n\
              jacundash --fundo     só deixa rodando em segundo plano, sem abrir (pra iniciar com a sessão)\n\
              jacundash --sair      encerra o que está em segundo plano\n\n\
              Config: ~/.config/jacundash/config.toml  ·  tema: ~/.config/jacundash/estilo.css\n\
@@ -53,7 +56,10 @@ fn main() -> glib::ExitCode {
         });
         let mut provedores: Vec<Arc<dyn Provider>> = vec![
             Arc::new(providers::calc::Calc),
+            Arc::new(providers::jacundash::Jacundash),
             Arc::new(apps),
+            Arc::new(providers::janelas::Janelas),
+            Arc::new(providers::arquivos::Arquivos),
             Arc::new(providers::web::Web::new(&cfg.busca.web)),
         ];
         for p in providers::plugin::carregar() {
@@ -69,6 +75,10 @@ fn main() -> glib::ExitCode {
         let args: Vec<String> = linha.arguments().iter().map(|a| a.to_string_lossy().into_owned()).collect();
         if args.iter().any(|a| a == "--sair") {
             app.quit();
+        } else if args.iter().any(|a| a == "--config") {
+            if let Some(ui) = u.borrow().as_ref() {
+                config_ui::abrir(ui);
+            }
         } else if !args.iter().any(|a| a == "--fundo") {
             if let Some(ui) = u.borrow().as_ref() {
                 match args.iter().skip(1).find(|a| !a.starts_with("--")) {

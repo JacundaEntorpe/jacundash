@@ -73,7 +73,7 @@ impl Default for Busca {
 impl Default for Categorias {
     fn default() -> Self {
         Categorias {
-            ordem: ["Calculadora", "Aplicativos", "Janelas", "Pastas", "Arquivos", "Web"].map(String::from).to_vec(),
+            ordem: ["Calculadora", "Aplicativos", "Janelas", "Jacundash", "Pastas", "Documentos", "Imagens", "Arquivos", "Web"].map(String::from).to_vec(),
             limite: 6,
             limites: HashMap::from([("Aplicativos".into(), 8)]),
             esconder: vec![],
@@ -108,6 +108,20 @@ impl Config {
                 Config::default()
             }),
             Err(_) => Config::default(),
+        }
+    }
+
+    /// Grava o config.toml (a aba de configurações chama isso a cada mudança).
+    pub fn salvar(&self) {
+        let pasta = pasta_config();
+        let texto = match toml::to_string_pretty(self) {
+            Ok(t) => t,
+            Err(e) => return eprintln!("jacundash: não deu pra salvar a config: {e}"),
+        };
+        let cabecalho = "# Feito pela aba de configurações do jacundash (Ctrl+, ou busque \"config\").\n\
+                         # Dá pra editar na mão também; depois rode: jacundash --sair\n\n";
+        if let Err(e) = std::fs::create_dir_all(&pasta).and_then(|_| std::fs::write(pasta.join("config.toml"), cabecalho.to_string() + &texto)) {
+            eprintln!("jacundash: não deu pra salvar a config: {e}");
         }
     }
 

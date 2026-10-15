@@ -15,12 +15,16 @@ const CSS_PADRAO: &str = include_str!("estilo.css");
 
 pub struct Ui {
     pub window: gtk::ApplicationWindow,
+    pub app: gtk::Application,
+    caixa: gtk::Box,
     entry: gtk::Entry,
     list: gtk::ListBox,
     scroll: gtk::ScrolledWindow,
     rodape: gtk::Label,
-    engine: Rc<Engine>,
-    cfg: Config,
+    pub engine: Rc<Engine>,
+    /// Muda com o app aberto (aba de configurações).
+    pub cfg: RefCell<Config>,
+    pub configuracoes: RefCell<Option<gtk::Window>>,
     tx: async_channel::Sender<Batch>,
     efeitos_tx: async_channel::Sender<Vec<Effect>>,
     uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>,
@@ -85,18 +89,22 @@ impl Ui {
         caixa.append(&scroll);
         caixa.append(&rodape);
         window.set_child(Some(&caixa));
+        window.set_default_size(cfg.aparencia.largura, -1);
 
         let (tx, rx) = async_channel::unbounded::<Batch>();
         let (efeitos_tx, efeitos_rx) = async_channel::unbounded::<Vec<Effect>>();
         let n = engine.providers.len();
         let ui = Rc::new(Ui {
             window,
+            app: app.clone(),
+            caixa,
             entry,
             list,
             scroll,
             rodape,
             engine: Rc::new(engine),
-            cfg,
+            cfg: RefCell::new(cfg),
+            configuracoes: RefCell::default(),
             tx,
             efeitos_tx,
             uso_apps,
@@ -143,10 +151,10 @@ impl Ui {
         teclas.connect_key_pressed(move |_, tecla, _, mods| u.tecla(tecla, mods));
         ui.window.add_controller(teclas);
 
-        if ui.cfg.busca.fechar_ao_perder_foco {
+        {
             let u = ui.clone();
             ui.window.connect_is_active_notify(move |w| {
-                if !w.is_active() && w.is_visible() {
+                if !w.is_active() && w.is_visible() && u.cfg.borrow().busca.fechar_ao_perder_foco {
                     u.esconder();
                 }
             });
@@ -178,6 +186,27 @@ impl Ui {
         self.window.set_visible(false);
     }
 
+    /// Aplica largura, altura e distância do topo depois de mudar a config.
+    pub fn aplicar_aparencia(&self) {
+        let cfg = self.cfg.borrow();
+        self.caixa.set_size_request(cfg.aparencia.largura, -1);
+        self.window.set_default_size(cfg.aparencia.largura, -1);
+        self.scroll.set_max_content_height(cfg.aparencia.altura_max);
+        posicionar_topo(&self.window, &cfg);
+    }
+
+    /// Encerra e sobe de novo em segundo plano: relê plugins, atalhos web e tema.
+    pub fn recarregar(&self) {
+        if let Ok(eu) = std::env::current_exe() {
+            // Espera este sair (e soltar o nome no D-Bus) antes do novo subir
+            let _ = std::process::Command::new("sh")
+                .args(["-c", "sleep 0.4; exec \"$0\" --fundo", &eu.to_string_lossy()])
+                .stdin(std::process::Stdio::null())
+                .spawn();
+        }
+        self.app.quit();
+    }
+
     fn buscar(self: &Rc<Self>) {
         let texto = self.entry.text().to_string();
         let geracao = {
@@ -192,7 +221,7 @@ impl Ui {
             e.modo_palavra = texto.contains(' ') && self.engine.providers.iter().any(|p| p.keyword() == palavra);
             e.geracao
         };
-        self.engine.search(&texto, geracao, &self.tx, &self.cfg);
+        self.engine.search(&texto, geracao, &self.tx, &self.cfg.borrow());
         // Busca vazia: a lista some na hora, sem esperar ninguém
         if texto.trim().is_empty() {
             self.marcar_desenho();
@@ -213,7 +242,7 @@ impl Ui {
 
     fn desenhar(&self) {
         let mut e = self.estado.borrow_mut();
-        e.linhas = engine::arrange(&self.engine, &e.resultados, &self.cfg, e.modo_palavra);
+        e.linhas = engine::arrange(&self.engine, &e.resultados, &self.cfg.borrow(), e.modo_palavra);
         self.list.remove_all();
         for (i, linha) in e.linhas.iter().enumerate() {
             let acoes = e.acoes.filter(|(l, _)| *l == i).map(|(_, a)| a);
@@ -242,7 +271,7 @@ impl Ui {
         categoria.set_ellipsize(gtk::pango::EllipsizeMode::End);
         caixa.append(&categoria);
 
-        caixa.append(&icone(&linha.item.icon, self.cfg.aparencia.icone));
+        caixa.append(&icone(&linha.item.icon, self.cfg.borrow().aparencia.icone));
 
         let textos = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         textos.set_hexpand(true);
@@ -292,6 +321,11 @@ impl Ui {
 
     fn tecla(self: &Rc<Self>, tecla: gdk::Key, mods: gdk::ModifierType) -> glib::Propagation {
         let shift = mods.contains(gdk::ModifierType::SHIFT_MASK);
+        if mods.contains(gdk::ModifierType::CONTROL_MASK) && tecla == gdk::Key::comma {
+            self.esconder();
+            crate::config_ui::abrir(self);
+            return glib::Propagation::Stop;
+        }
         match tecla {
             gdk::Key::Escape => {
                 if self.estado.borrow().acoes.is_some() {
@@ -372,7 +406,12 @@ impl Ui {
                 }
             }
             Effect::Copy { text } => WidgetExt::display(&self.window).clipboard().set_text(text),
-            Effect::Exec { cmd, terminal, cwd } => rodar(cmd, *terminal, cwd.as_deref(), &self.cfg),
+            Effect::Exec { cmd, terminal, cwd } => rodar(cmd, *terminal, cwd.as_deref(), &self.cfg.borrow()),
+            Effect::Internal { action } => match action.as_str() {
+                "config" => crate::config_ui::abrir(self),
+                "recarregar" => self.recarregar(),
+                _ => eprintln!("jacundash: ação interna desconhecida: {action}"),
+            },
             Effect::Query { text } => {
                 self.entry.set_text(text);
                 self.entry.set_position(-1);
@@ -407,10 +446,14 @@ fn mostrar_linha(scroll: &gtk::ScrolledWindow, list: &gtk::ListBox, row: &gtk::L
 }
 
 fn icone(nome: &str, tamanho: i32) -> gtk::Image {
+    let tema = gtk::IconTheme::for_display(&gdk::Display::default().unwrap());
     let img = if nome.is_empty() {
         gtk::Image::new()
     } else if nome.starts_with('/') {
         gtk::Image::from_file(nome)
+    } else if !nome.contains(' ') && !nome.contains('.') {
+        // Nome solto ("discord"): se o tema não tiver, um ícone genérico em vez do quebrado
+        gtk::Image::from_icon_name(if tema.has_icon(nome) { nome } else { "application-x-executable" })
     } else {
         match gio::Icon::for_string(nome) {
             Ok(i) => gtk::Image::from_gicon(&i),
@@ -485,11 +528,19 @@ fn posicionar(window: &gtk::ApplicationWindow, cfg: &Config) {
             window.set_namespace(Some("jacundash"));
             window.set_layer(Layer::Overlay);
             window.set_anchor(Edge::Top, true);
-            window.set_margin(Edge::Top, cfg.aparencia.topo);
             window.set_keyboard_mode(KeyboardMode::OnDemand);
-            return;
         }
     }
-    let _ = cfg;
-    window.set_modal(false);
+    posicionar_topo(window, cfg);
+}
+
+fn posicionar_topo(window: &gtk::ApplicationWindow, cfg: &Config) {
+    #[cfg(feature = "layer-shell")]
+    {
+        use gtk4_layer_shell::{Edge, LayerShell};
+        if gtk4_layer_shell::is_supported() {
+            window.set_margin(Edge::Top, cfg.aparencia.topo);
+        }
+    }
+    let _ = (window, cfg);
 }
