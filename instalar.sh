@@ -65,6 +65,14 @@ X-GNOME-Autostart-enabled=true
 FIM
 command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 >/dev/null 2>&1 || true
 
+# Konsole: perfil que roda o comando nas abas que o jacundash abre (o Konsole não deixa outro
+# programa digitar numa aba). Vale nos Konsoles abertos depois daqui.
+if command -v konsole >/dev/null; then
+  install -Dm755 "$AQUI/konsole/aba.sh" "$DADOS/jacundash/aba.sh"
+  mkdir -p "$DADOS/konsole"
+  printf '[General]\nName=Jacundash\nParent=FALLBACK/\nCommand=%s\n' "$DADOS/jacundash/aba.sh" > "$DADOS/konsole/Jacundash.profile"
+fi
+
 # Atalhos de busca próprios (aur:, bp:, ghme:...), no formato dos do KDE
 mkdir -p "$CONF/jacundash/atalhos-web"
 usuario="$(git config --global user.name 2>/dev/null || echo "$USER")"

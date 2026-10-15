@@ -246,9 +246,73 @@ pub struct Repos {
     pub cfg: Compartilhada,
 }
 
+/// Receita do projeto (.jacundash.toml na raiz): o que abrir pra começar a trabalhar nele.
+#[derive(serde::Deserialize, Default)]
+#[serde(default)]
+struct Receita {
+    /// Abre a pasta no editor da config.
+    editor: bool,
+    /// Uma aba de terminal por item, na pasta do projeto ("" = só o terminal).
+    terminais: Vec<String>,
+    /// Rodam em segundo plano antes de tudo (avisam se falharem): "docker compose up -d".
+    comandos: Vec<String>,
+    /// Links e arquivos pra abrir: "http://localhost:3000".
+    abrir: Vec<String>,
+}
+
+const RECEITA: &str = ".jacundash.toml";
+
+const MODELO_RECEITA: &str = "# Receita deste projeto pro jacundash: \"vs <projeto>\" → Shift+Enter → \"Começar a trabalhar\"\n\
+# abre tudo isto de uma vez. Apague o que não usar.\n\n\
+# Abre a pasta no editor (o da config do jacundash)\n\
+editor = true\n\n\
+# Uma aba de terminal por item, já na pasta do projeto (\"\" = só o terminal)\n\
+terminais = [\"\", \"npm run dev\"]\n\n\
+# Rodam em segundo plano antes (avisam numa notificação se falharem)\n\
+comandos = [\"docker compose up -d\"]\n\n\
+# Links e arquivos pra abrir\n\
+abrir = [\"http://localhost:3000\"]\n";
+
 impl Provider for Repos {
     fn category(&self) -> &str {
         "Repositórios"
+    }
+    fn callback(&self, data: &str) -> Vec<Effect> {
+        let editor: Vec<String> = self.cfg.read().unwrap().repos.editor.split_whitespace().map(String::from).collect();
+        let abrir_no_editor = |arquivo: &str| {
+            let mut cmd = editor.clone();
+            cmd.push(arquivo.to_string());
+            Effect::Exec { cmd, terminal: false, cwd: None, hold: false, tab: None }
+        };
+        if let Some(pasta) = data.strip_prefix("criar-receita:") {
+            let arquivo = Path::new(pasta).join(RECEITA);
+            if !arquivo.exists() {
+                let _ = std::fs::write(&arquivo, MODELO_RECEITA);
+            }
+            return vec![abrir_no_editor(&arquivo.to_string_lossy())];
+        }
+        let Some(pasta) = data.strip_prefix("receita:") else { return vec![] };
+        let nome = Path::new(pasta).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let receita: Receita = match std::fs::read_to_string(Path::new(pasta).join(RECEITA)).map_err(|e| e.to_string()).and_then(|t| toml::from_str(&t).map_err(|e| e.to_string())) {
+            Ok(r) => r,
+            Err(e) => {
+                crate::sistema::avisar(&format!("{nome}: receita com erro"), &e, "dialog-error");
+                return vec![abrir_no_editor(&Path::new(pasta).join(RECEITA).to_string_lossy())];
+            }
+        };
+        let mut efeitos: Vec<Effect> = receita.comandos.iter().map(|c| Effect::Task { cmd: vec!["sh".into(), "-c".into(), c.clone()], cwd: Some(pasta.into()), label: format!("{nome}: {c}") }).collect();
+        if receita.editor {
+            efeitos.push(Effect::Exec { cmd: comando(&editor.join(" "), pasta), terminal: false, cwd: Some(pasta.into()), hold: false, tab: None });
+        }
+        for t in &receita.terminais {
+            let cmd = if t.trim().is_empty() { vec![] } else { vec!["sh".into(), "-c".into(), t.clone()] };
+            efeitos.push(Effect::Exec { cmd, terminal: true, cwd: Some(pasta.into()), hold: true, tab: Some(true) });
+        }
+        for a in &receita.abrir {
+            let uri = if a.contains("://") { a.clone() } else { gtk::gio::File::for_path(Path::new(pasta).join(a)).uri().to_string() };
+            efeitos.push(Effect::Open { uri });
+        }
+        efeitos
     }
     fn keyword(&self) -> &str {
         "vs"
@@ -281,6 +345,13 @@ impl Provider for Repos {
             let mut item = Item::new(&r.nome, editor).subtitle(sub).icon(if r.git { "folder-git" } else { "folder" }).score(nota.min(1.0)).preview(r.caminho.clone());
             item = acoes_de_pasta(item, &r.caminho, &cfg, &terminal, false)
                 .action("Abrir no gerenciador de arquivos", "system-file-manager", Effect::abrir_caminho(&r.caminho));
+            // Receita do projeto: "Começar a trabalhar" vai pro topo das ações; sem ela, dá pra criar
+            if Path::new(&r.caminho).join(RECEITA).is_file() {
+                item.actions.insert(0, crate::model::Action { label: "Começar a trabalhar".into(), icon: "media-playback-start".into(), effect: Effect::Callback { data: format!("receita:{}", r.caminho) } });
+                item.subtitle += "  ·  tem receita";
+            } else {
+                item = item.action("Criar uma receita (o que abrir pra trabalhar aqui)", "document-new", Effect::Callback { data: format!("criar-receita:{}", r.caminho) });
+            }
             if let Some(web) = &r.web {
                 item = item
                     .action("Abrir o remote no navegador", "internet-web-browser", Effect::Open { uri: web.clone() })

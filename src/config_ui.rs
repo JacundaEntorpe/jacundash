@@ -286,7 +286,7 @@ fn extras(ui: &Rc<Ui>) -> gtk::Box {
 /// As ações que o jacundash já tem, por categoria (as dos plugins entram quando aparecem).
 const ACOES_CONHECIDAS: &[(&str, &[&str])] = &[
     ("Todas", &["Fixar no topo", "Esconder este resultado"]),
-    ("Repositórios", &["Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "Abrir no gerenciador de arquivos", "Abrir o remote no navegador", "git pull", "Copiar o caminho"]),
+    ("Repositórios", &["Começar a trabalhar", "Criar uma receita (o que abrir pra trabalhar aqui)", "Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "Abrir no gerenciador de arquivos", "Abrir o remote no navegador", "git pull", "Copiar o caminho"]),
     ("Pastas", &["Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "Abrir no editor", "Abrir a pasta onde ele está", "Copiar o caminho"]),
     ("Git", &["Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "git pull", "git push", "Abrir o remote no navegador"]),
     ("Docker", &["Abrir um shell dentro", "Reiniciar", "Parar", "Ver os logs", "Copiar o nome"]),

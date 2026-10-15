@@ -57,7 +57,16 @@ Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notifi
 
 **Recentes:** com a busca vazia, o que você abriu por último. **Desligado de fábrica** (Configurações → Extras).
 
-**Aba nova do terminal:** todo comando de terminal (logs, SSH, `>comando`, status de serviço...) abre primeiro numa aba nova da janela do terminal que já está aberta; se o terminal não tiver abas ou não estiver aberto, abre janela. Dá pra desligar em Configurações → Geral, e "Abrir no terminal (janela nova)" sempre abre janela. Funciona no Konsole (pelo D-Bus, no Konsole que já está aberto), GNOME Terminal, Xfce Terminal, Ptyxis, GNOME Console, WezTerm (aberto) e kitty (com `allow_remote_control yes`). Nos terminais sem abas (foot, alacritty, xterm) a ação nem aparece.
+**Receita de projeto:** um `.jacundash.toml` na raiz do repositório diz o que abrir pra trabalhar nele; aí `vs projeto` → Shift+Enter → **Começar a trabalhar** abre tudo de uma vez. Sem receita, a mesma lista tem "Criar uma receita", que gera o arquivo comentado:
+
+```toml
+editor = true                         # abre no editor
+terminais = ["", "npm run dev"]       # uma aba por item ("" = só o terminal na pasta)
+comandos = ["docker compose up -d"]   # rodam por trás antes (avisam se falharem)
+abrir = ["http://localhost:3000"]     # links e arquivos
+```
+
+**Aba nova do terminal:** todo comando de terminal (logs, SSH, `>comando`, status de serviço...) abre primeiro numa aba nova da janela do terminal que já está aberta; se o terminal não tiver abas ou não estiver aberto, abre janela. Dá pra desligar em Configurações → Geral, e "Abrir no terminal (janela nova)" sempre abre janela. No Konsole, o comando vai por um perfil "Jacundash" que o instalador cria (o Konsole não deixa outro programa digitar numa aba); ele só vale nos Konsoles abertos depois da instalação, e até lá o comando abre numa janela nova. Funciona no Konsole (pelo D-Bus, no Konsole que já está aberto), GNOME Terminal, Xfce Terminal, Ptyxis, GNOME Console, WezTerm (aberto) e kitty (com `allow_remote_control yes`). Nos terminais sem abas (foot, alacritty, xterm) a ação nem aparece.
 
 **Ações personalizadas:** em Configurações → Ações dá pra esconder qualquer ação (o `git pull` dos repositórios, por exemplo) e escolher quais viram botão na linha, por categoria.
 

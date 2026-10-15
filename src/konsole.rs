@@ -36,30 +36,81 @@ fn ativar(pid: u32) {
     crate::kwin::na_janela(&format!("w.pid === {pid}"), "workspace.activeWindow = w;");
 }
 
-/// Abre uma aba na pasta, no Konsole que já está aberto, e roda `comando` nela (se tiver). O
-/// shell da aba continua aberto depois. false se não tem Konsole aberto (aí quem chamou abre
-/// uma janela nova).
+/// O perfil do Konsole que roda o comando da aba (criado pelo instalar.sh).
+fn perfil() -> std::path::PathBuf {
+    crate::config::home().join(".local/share/konsole/Jacundash.profile")
+}
+
+/// Onde os comandos das próximas abas esperam: um arquivo por comando, em ordem (o aba.sh do
+/// perfil pega o mais antigo). Assim várias abas abertas juntas não trocam de comando.
+fn fila() -> std::path::PathBuf {
+    std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir).join("jacundash-abas")
+}
+
+fn por_na_fila(comando: &str) -> Option<std::path::PathBuf> {
+    let pasta = fila();
+    std::fs::create_dir_all(&pasta).ok()?;
+    let nome = format!("{:020}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos());
+    let arquivo = pasta.join(nome);
+    std::fs::write(&arquivo, comando).ok()?;
+    Some(arquivo)
+}
+
+/// O Konsole só conhece os perfis que existiam quando ele abriu: se ele é mais velho que o
+/// perfil do jacundash, não dá pra rodar comando numa aba dele.
+fn conhece_o_perfil(pid: u32) -> bool {
+    let quando = |p: &std::path::Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    match (quando(&perfil()), quando(std::path::Path::new(&format!("/proc/{pid}")))) {
+        (Some(perfil), Some(konsole)) => konsole > perfil,
+        _ => false,
+    }
+}
+
+/// Abre uma aba na pasta, no Konsole que já está aberto, rodando `comando` (se tiver). Depois
+/// do comando a aba continua no shell. false se não deu (aí quem chamou abre uma janela nova).
+///
+/// O Konsole não deixa outro programa digitar na aba (runCommand dá "acesso negado"), então o
+/// comando vai pelo perfil "Jacundash": o jacundash deixa o comando na fila e o perfil roda.
 pub fn nova_aba(pasta: &str, comando: Option<&str>) -> bool {
     let Some(bus) = bus() else { return false };
     let Some((servico, pid)) = konsole_aberto(&bus) else { return false };
+    if comando.is_some() && !conhece_o_perfil(pid) {
+        return false;
+    }
     let Some(janela) = ultima_janela(&bus, &servico) else { return false };
-    let Some(sessao) = chamar(&bus, &servico, &janela, "org.kde.konsole.Window", "newSession", Some(("", pasta).to_variant()), Some("(i)")).and_then(|v| v.child_value(0).get::<i32>()) else {
+    let na_fila = match comando {
+        Some(c) => match por_na_fila(c) {
+            Some(f) => Some(f),
+            None => return false,
+        },
+        None => None,
+    };
+    let perfil = if na_fila.is_some() { "Jacundash" } else { "" };
+    let Some(sessao) = chamar(&bus, &servico, &janela, "org.kde.konsole.Window", "newSession", Some((perfil, pasta).to_variant()), Some("(i)")).and_then(|v| v.child_value(0).get::<i32>()) else {
+        if let Some(f) = na_fila {
+            let _ = std::fs::remove_file(f);
+        }
         return false;
     };
     let _ = chamar(&bus, &servico, &janela, "org.kde.konsole.Window", "setCurrentSession", Some((sessao,).to_variant()), None);
-    if let Some(c) = comando {
-        let _ = chamar(&bus, &servico, &format!("/Sessions/{sessao}"), "org.kde.konsole.Session", "runCommand", Some((c,).to_variant()), None);
-    }
     ativar(pid);
     true
 }
 
 #[cfg(test)]
 mod tests {
-    /// Abre uma aba de verdade no Konsole aberto: só roda com --ignored.
+    /// Abre um Konsole novo, roda um comando numa aba dele e confere que rodou: só com --ignored.
     #[test]
     #[ignore]
-    fn aba_no_konsole_aberto() {
-        assert!(super::nova_aba(&format!("{}/Projetos/jacundash", std::env::var("HOME").unwrap()), Some("echo 'aba do teste do jacundash, pode fechar'")));
+    fn comando_em_aba_nova() {
+        let novo = std::process::Command::new("konsole").spawn().expect("sem konsole");
+        std::thread::sleep(std::time::Duration::from_millis(2500));
+        let marca = std::env::temp_dir().join("jacundash-teste-aba");
+        let _ = std::fs::remove_file(&marca);
+        let ok = super::nova_aba(&std::env::var("HOME").unwrap(), Some(&format!("touch {}", marca.display())));
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        let rodou = marca.exists();
+        let _ = std::process::Command::new("kill").arg(novo.id().to_string()).status();
+        assert!(ok && rodou, "abriu a aba: {ok}, rodou o comando: {rodou}");
     }
 }
