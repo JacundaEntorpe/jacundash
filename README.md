@@ -23,10 +23,18 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 | `2^10*3`, `15% de 80`, `sqrt(2)`, `=1/3` | Calculadora. Enter copia o resultado |
 | `disc` | Janelas abertas (Enter vai pra janela). `ja` lista todas |
 | `relatorio` (3+ letras) | Arquivos e pastas, separados em Pastas, Imagens, Documentos... Quem tem a busca no nome vem antes de quem só tem no conteúdo. `ar texto` mostra só arquivos |
+| `poke`, `vs poke` | Repositórios git (e as pastas abertas no VS Code), com a branch. Enter abre no editor; Shift+Enter: terminal (janela ou aba nova), Claude Code, gerenciador de arquivos, remote no navegador, `git pull`, copiar o caminho |
+| `sprites`, `pa sprites` | Pastas comuns (sem git) das mesmas pastas, com a pasta de cima do lado |
+| `gs` | Repositórios com alteração, commit sem push ou atrás do remote; `git pull`/`git push` no Shift+Enter e "Buscar atualizações de todos" (git fetch) no fim |
+| `dk`, `ani-mal` | Containers Docker. Enter: logs (ou inicia, se estiver parado); Shift+Enter: shell, reiniciar, parar |
+| `sv`, `sv docker` | Serviços do systemd (sistema e usuário). `sv` sozinho mostra os favoritos e os que falharam. Enter: status; Shift+Enter: logs ao vivo, reiniciar, parar, iniciar |
+| `ts`, `vps` | Aparelhos do Tailscale, online primeiro. Enter copia o IP; Shift+Enter: SSH, copiar o nome, navegador, ping |
 | `config` | Configurações do Jacundash (ou **Ctrl+,**) |
 | `gh:react`, `yt lofi`, `protondb elden ring` | Atalhos de busca da web (os do KDE e os seus) |
 | qualquer texto | "Pesquisar na web" no fim da lista |
-| `app`, `ssh`... + espaço | Só aquela categoria, sem limite de resultados |
+| `app`, `vs`, `ssh`... + espaço | Só aquela categoria, sem limite de resultados |
+
+Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notificação quando terminam.
 
 **Teclas:** setas ou Tab andam, Enter abre, **Shift+Enter** mostra as outras ações do item, Esc fecha (ou fecha as ações). Clicar fora ou trocar de janela também fecha.
 
@@ -62,7 +70,7 @@ Ligue o comando `jacundash` a uma tecla. Ele abre se estiver fechado e fecha se 
 
 ## Configurar
 
-A aba de configurações (**Ctrl+,** com o jacundash aberto, ou busque `config`) tem tudo: fechar ao perder o foco, busca da web, terminal, tamanho e posição, quais categorias aparecem, quantos resultados cada uma mostra e em que ordem, e os plugins (ligar, desligar, abrir a pasta, recarregar). Cada mudança vale na hora.
+A aba de configurações (**Ctrl+,** com o jacundash aberto, ou busque `config`) tem tudo: fechar ao perder o foco, busca da web, terminal, tamanho e posição, quais categorias aparecem, quantos resultados cada uma mostra e em que ordem, onde procurar repositórios, editor, serviços favoritos, usuário do SSH de cada aparelho do Tailscale e os plugins (ligar, desligar, abrir a pasta, recarregar). Cada mudança vale na hora.
 
 Ela grava em `~/.config/jacundash/config.toml`, que também dá pra editar na mão:
 
@@ -77,6 +85,18 @@ icone = 22
 web = "https://duckduckgo.com/?q={}"
 fechar_ao_perder_foco = true
 terminal = "konsole"   # vazio = acha sozinho
+
+[repos]
+pastas = ["~/Projetos", "~/Documentos"]   # onde procurar repositórios (e as pastas do "pa")
+profundidade = 4
+editor = "code"
+claude = "claude"
+
+[servicos]
+favoritos = ["docker", "tailscaled", "ollama"]   # o que aparece com "sv" sozinho
+
+[tailscale.usuarios]
+vps = "ubuntu"        # usuário do SSH por aparelho
 
 [categorias]
 ordem = ["Calculadora", "Aplicativos", "SSH", "Web"]   # desempate entre categorias
@@ -100,5 +120,5 @@ Qualquer programa vira plugin: ele recebe a busca em JSON e devolve os resultado
 
 ## Próximos passos
 
-- Repositórios, pastas, git, docker, serviços, Tailscale e IA (o que hoje está no krocket)
+- IA local (Ollama) e Hermes, que hoje estão no krocket
 - Fixar e esconder itens, abrir com o mesmo atalho já configurado no desktop

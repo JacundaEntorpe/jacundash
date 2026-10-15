@@ -5,3 +5,8 @@ pub mod web;
 pub mod arquivos;
 pub mod janelas;
 pub mod jacundash;
+pub mod docker;
+pub mod git;
+pub mod repos;
+pub mod servicos;
+pub mod tailscale;

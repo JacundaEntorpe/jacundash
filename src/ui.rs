@@ -1,10 +1,11 @@
 //! A janela: campo de busca em cima, lista por categoria embaixo. Fica criada o tempo todo
 //! (escondida) pra abrir na hora.
 
-use crate::config::{Config, pasta_config};
+use crate::config::{Compartilhada, Config, pasta_config};
 use crate::engine::{self, Batch, Engine, Row};
 use crate::model::{Effect, Item};
 use crate::providers::apps;
+use crate::sistema;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
 use std::cell::RefCell;
@@ -23,7 +24,7 @@ pub struct Ui {
     rodape: gtk::Label,
     pub engine: Rc<Engine>,
     /// Muda com o app aberto (aba de configurações).
-    pub cfg: RefCell<Config>,
+    pub cfg: Compartilhada,
     pub configuracoes: RefCell<Option<gtk::Window>>,
     tx: async_channel::Sender<Batch>,
     efeitos_tx: async_channel::Sender<Vec<Effect>>,
@@ -44,8 +45,10 @@ struct Estado {
 }
 
 impl Ui {
-    pub fn new(app: &gtk::Application, engine: Engine, cfg: Config, uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>) -> Rc<Ui> {
+    pub fn new(app: &gtk::Application, engine: Engine, cfg: Compartilhada, uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>) -> Rc<Ui> {
         carregar_css();
+        let cfg_compartilhada = cfg;
+        let cfg = cfg_compartilhada.read().unwrap().clone();
         let window = gtk::ApplicationWindow::builder()
             .application(app)
             .title("Jacundash")
@@ -103,7 +106,7 @@ impl Ui {
             scroll,
             rodape,
             engine: Rc::new(engine),
-            cfg: RefCell::new(cfg),
+            cfg: cfg_compartilhada,
             configuracoes: RefCell::default(),
             tx,
             efeitos_tx,
@@ -154,7 +157,7 @@ impl Ui {
         {
             let u = ui.clone();
             ui.window.connect_is_active_notify(move |w| {
-                if !w.is_active() && w.is_visible() && u.cfg.borrow().busca.fechar_ao_perder_foco {
+                if !w.is_active() && w.is_visible() && u.cfg.read().unwrap().busca.fechar_ao_perder_foco {
                     u.esconder();
                 }
             });
@@ -188,7 +191,7 @@ impl Ui {
 
     /// Aplica largura, altura e distância do topo depois de mudar a config.
     pub fn aplicar_aparencia(&self) {
-        let cfg = self.cfg.borrow();
+        let cfg = self.cfg.read().unwrap();
         self.caixa.set_size_request(cfg.aparencia.largura, -1);
         self.window.set_default_size(cfg.aparencia.largura, -1);
         self.scroll.set_max_content_height(cfg.aparencia.altura_max);
@@ -221,7 +224,7 @@ impl Ui {
             e.modo_palavra = texto.contains(' ') && self.engine.providers.iter().any(|p| p.keyword() == palavra);
             e.geracao
         };
-        self.engine.search(&texto, geracao, &self.tx, &self.cfg.borrow());
+        self.engine.search(&texto, geracao, &self.tx, &self.cfg.read().unwrap());
         // Busca vazia: a lista some na hora, sem esperar ninguém
         if texto.trim().is_empty() {
             self.marcar_desenho();
@@ -242,7 +245,7 @@ impl Ui {
 
     fn desenhar(&self) {
         let mut e = self.estado.borrow_mut();
-        e.linhas = engine::arrange(&self.engine, &e.resultados, &self.cfg.borrow(), e.modo_palavra);
+        e.linhas = engine::arrange(&self.engine, &e.resultados, &self.cfg.read().unwrap(), e.modo_palavra);
         self.list.remove_all();
         for (i, linha) in e.linhas.iter().enumerate() {
             let acoes = e.acoes.filter(|(l, _)| *l == i).map(|(_, a)| a);
@@ -271,7 +274,7 @@ impl Ui {
         categoria.set_ellipsize(gtk::pango::EllipsizeMode::End);
         caixa.append(&categoria);
 
-        caixa.append(&icone(&linha.item.icon, self.cfg.borrow().aparencia.icone));
+        caixa.append(&icone(&linha.item.icon, self.cfg.read().unwrap().aparencia.icone));
 
         let textos = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         textos.set_hexpand(true);
@@ -406,7 +409,8 @@ impl Ui {
                 }
             }
             Effect::Copy { text } => WidgetExt::display(&self.window).clipboard().set_text(text),
-            Effect::Exec { cmd, terminal, cwd } => rodar(cmd, *terminal, cwd.as_deref(), &self.cfg.borrow()),
+            Effect::Exec { cmd, terminal, cwd, hold, tab } => rodar(cmd, *terminal, cwd.as_deref(), *hold, *tab, &self.cfg.read().unwrap()),
+            Effect::Task { cmd, cwd, label } => sistema::tarefa(cmd.clone(), cwd.clone(), label.clone()),
             Effect::Internal { action } => match action.as_str() {
                 "config" => crate::config_ui::abrir(self),
                 "recarregar" => self.recarregar(),
@@ -466,18 +470,9 @@ fn icone(nome: &str, tamanho: i32) -> gtk::Image {
 }
 
 /// Roda um comando solto (fora do jacundash), opcionalmente dentro de um terminal.
-fn rodar(cmd: &[String], terminal: bool, cwd: Option<&str>, cfg: &Config) {
+fn rodar(cmd: &[String], terminal: bool, cwd: Option<&str>, segurar: bool, aba: bool, cfg: &Config) {
     use std::os::unix::process::CommandExt;
-    let mut argv: Vec<String> = cmd.to_vec();
-    if terminal {
-        let t = if cfg.busca.terminal.is_empty() { achar_terminal() } else { cfg.busca.terminal.clone() };
-        let mut t: Vec<String> = t.split_whitespace().map(String::from).collect();
-        if !argv.is_empty() {
-            t.push(if t[0].ends_with("wezterm") { "start".into() } else { "-e".into() });
-        }
-        t.extend(argv);
-        argv = t;
-    }
+    let argv = if terminal { sistema::no_terminal(&cfg.busca.terminal, cmd, cwd, segurar, aba) } else { cmd.to_vec() };
     let Some((prog, args)) = argv.split_first() else { return };
     let mut c = std::process::Command::new(prog);
     c.args(args).stdin(std::process::Stdio::null()).process_group(0);
@@ -485,22 +480,8 @@ fn rodar(cmd: &[String], terminal: bool, cwd: Option<&str>, cfg: &Config) {
         c.current_dir(d);
     }
     if let Err(e) = c.spawn() {
-        eprintln!("jacundash: não rodou {prog}: {e}");
+        sistema::avisar("Não deu pra rodar", &format!("{prog}: {e}"), "dialog-error");
     }
-}
-
-fn achar_terminal() -> String {
-    if let Ok(t) = std::env::var("TERMINAL") {
-        return t;
-    }
-    for t in ["konsole", "kitty", "foot", "alacritty", "wezterm", "gnome-terminal", "ptyxis", "xfce4-terminal", "xterm"] {
-        if std::env::var_os("PATH")
-            .is_some_and(|p| std::env::split_paths(&p).any(|d| d.join(t).is_file()))
-        {
-            return t.into();
-        }
-    }
-    "xterm".into()
 }
 
 fn carregar_css() {

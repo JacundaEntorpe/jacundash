@@ -11,6 +11,7 @@ mod krunner;
 mod matcher;
 mod model;
 mod providers;
+mod sistema;
 mod ui;
 
 use engine::{Engine, Provider};
@@ -46,7 +47,8 @@ fn main() -> glib::ExitCode {
 
     let u = ui.clone();
     app.connect_startup(move |app| {
-        let cfg = config::Config::carregar();
+        let cfg: config::Compartilhada = Arc::new(std::sync::RwLock::new(config::Config::carregar()));
+        let web = cfg.read().unwrap().busca.web.clone();
         let apps = providers::apps::Apps::new();
         let uso = apps.uso.clone();
         // Instalou ou desinstalou app: relê a lista
@@ -54,13 +56,21 @@ fn main() -> glib::ExitCode {
         gio::AppInfoMonitor::get().connect_changed(move |_| {
             *lista.write().unwrap() = providers::apps::ler_apps();
         });
+        let varredura = providers::repos::Varredura::new(cfg.clone());
         let mut provedores: Vec<Arc<dyn Provider>> = vec![
             Arc::new(providers::calc::Calc),
             Arc::new(providers::jacundash::Jacundash),
             Arc::new(apps),
             Arc::new(providers::janelas::Janelas),
+            Arc::new(providers::repos::Repos { varredura: varredura.clone(), cfg: cfg.clone() }),
+            Arc::new(providers::git::Git::new(varredura.clone(), cfg.clone())),
+            Arc::new(providers::docker::Docker::default()),
+            Arc::new(providers::servicos::Servicos::new(cfg.clone())),
+            Arc::new(providers::tailscale::Tailscale::new(cfg.clone())),
+            // As nossas pastas antes das do Baloo: na repetida, fica a que tem mais ações
+            Arc::new(providers::repos::Pastas { varredura: varredura.clone(), cfg: cfg.clone() }),
             Arc::new(providers::arquivos::Arquivos),
-            Arc::new(providers::web::Web::new(&cfg.busca.web)),
+            Arc::new(providers::web::Web::new(&web)),
         ];
         for p in providers::plugin::carregar() {
             provedores.push(Arc::new(p));

@@ -30,6 +30,7 @@ pub fn abrir(ui: &Rc<Ui>) {
     pilha.add_titled(&pagina(geral(ui)), Some("geral"), "Geral");
     pilha.add_titled(&pagina(aparencia(ui)), Some("aparencia"), "Aparência");
     pilha.add_titled(&pagina(categorias(ui)), Some("categorias"), "Categorias");
+    pilha.add_titled(&pagina(programacao(ui)), Some("programacao"), "Programação");
     pilha.add_titled(&pagina(plugins(ui)), Some("plugins"), "Plugins");
 
     let lado = gtk::StackSidebar::new();
@@ -53,8 +54,9 @@ pub fn abrir(ui: &Rc<Ui>) {
 
 /// Muda a config, salva e aplica.
 fn mudar(ui: &Rc<Ui>, f: impl FnOnce(&mut Config)) {
-    f(&mut ui.cfg.borrow_mut());
-    ui.cfg.borrow().salvar();
+    f(&mut ui.cfg.write().unwrap());
+    let cfg = ui.cfg.read().unwrap().clone();
+    cfg.salvar();
     ui.aplicar_aparencia();
 }
 
@@ -115,7 +117,7 @@ fn texto_entrada(valor: &str, largura: i32) -> gtk::Entry {
 
 fn geral(ui: &Rc<Ui>) -> gtk::Box {
     let c = coluna();
-    let cfg = ui.cfg.borrow().clone();
+    let cfg = ui.cfg.read().unwrap().clone();
 
     let foco = gtk::Switch::builder().active(cfg.busca.fechar_ao_perder_foco).build();
     let u = ui.clone();
@@ -147,7 +149,7 @@ fn geral(ui: &Rc<Ui>) -> gtk::Box {
 
 fn aparencia(ui: &Rc<Ui>) -> gtk::Box {
     let c = coluna();
-    let a = ui.cfg.borrow().aparencia.clone();
+    let a = ui.cfg.read().unwrap().aparencia.clone();
     let campos: [(&str, &str, f64, f64, i32, fn(&mut Config, i32)); 4] = [
         ("Largura", "Em pixels.", 360.0, 1600.0, a.largura, |c, v| c.aparencia.largura = v),
         ("Altura máxima da lista", "A lista encolhe quando tem pouca coisa; isto é o máximo.", 120.0, 1200.0, a.altura_max, |c, v| {
@@ -188,7 +190,7 @@ const MODELO_TEMA: &str = "/* Tema do jacundash: vale por cima do padrão. Desco
 
 /// Todas as categorias conhecidas, na ordem da config (as que faltarem vão pro fim).
 fn todas_categorias(ui: &Ui) -> Vec<String> {
-    let mut lista = ui.cfg.borrow().categorias.ordem.clone();
+    let mut lista = ui.cfg.read().unwrap().categorias.ordem.clone();
     let novas = ui.engine.providers.iter().map(|p| p.category().to_string()).chain(EXTRAS.iter().map(|s| s.to_string()));
     for c in novas {
         if !lista.contains(&c) {
@@ -215,7 +217,7 @@ fn categorias(ui: &Rc<Ui>) -> gtk::Box {
 fn preencher_categorias(ui: &Rc<Ui>, lista: &gtk::ListBox) {
     lista.remove_all();
     let todas = todas_categorias(ui);
-    let cfg = ui.cfg.borrow().clone();
+    let cfg = ui.cfg.read().unwrap().clone();
     for (i, nome) in todas.iter().enumerate() {
         let linha = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         linha.set_margin_top(6);
@@ -268,6 +270,72 @@ fn preencher_categorias(ui: &Rc<Ui>, lista: &gtk::ListBox) {
     }
 }
 
+fn lista(v: &[String]) -> String {
+    v.join(", ")
+}
+
+fn de_lista(t: &str) -> Vec<String> {
+    t.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+}
+
+/// Repositórios, pastas, git, serviços e Tailscale.
+fn programacao(ui: &Rc<Ui>) -> gtk::Box {
+    let c = coluna();
+    let cfg = ui.cfg.read().unwrap().clone();
+    let r = &cfg.repos;
+
+    c.append(&titulo("Repositórios e pastas (vs, pa, gs)"));
+    let pastas = texto_entrada(&lista(&r.pastas), 34);
+    let u = ui.clone();
+    pastas.connect_changed(move |e| mudar(&u, |c| c.repos.pastas = de_lista(&e.text())));
+    c.append(&opcao("Onde procurar", "Separadas por vírgula. Ex.: ~/Projetos, ~/Documentos", &pastas));
+
+    let prof = numero(1.0, 10.0, r.profundidade as i32);
+    let u = ui.clone();
+    prof.connect_value_changed(move |s| mudar(&u, |c| c.repos.profundidade = s.value_as_int() as usize));
+    c.append(&opcao("Profundidade", "Quantas pastas pra dentro ele procura.", &prof));
+
+    let ignorar = texto_entrada(&lista(&r.ignorar), 34);
+    let u = ui.clone();
+    ignorar.connect_changed(move |e| mudar(&u, |c| c.repos.ignorar = de_lista(&e.text())));
+    c.append(&opcao("Ignorar", "Pastas que nunca entram (as escondidas já ficam de fora).", &ignorar));
+
+    let vscode = gtk::Switch::builder().active(r.recentes_vscode).build();
+    let u = ui.clone();
+    vscode.connect_active_notify(move |s| mudar(&u, |c| c.repos.recentes_vscode = s.is_active()));
+    c.append(&opcao("Recentes do VS Code", "Inclui as pastas abertas no VS Code e sobe as dos últimos 30 dias.", &vscode));
+
+    let editor = texto_entrada(&r.editor, 20);
+    let u = ui.clone();
+    editor.connect_changed(move |e| mudar(&u, |c| c.repos.editor = e.text().into()));
+    c.append(&opcao("Editor", "O Enter num repositório abre aqui. Ex.: code, codium, kate.", &editor));
+
+    let claude = texto_entrada(&r.claude, 20);
+    let u = ui.clone();
+    claude.connect_changed(move |e| mudar(&u, |c| c.repos.claude = e.text().into()));
+    c.append(&opcao("Claude Code", "Comando da ação \"Abrir o Claude Code aqui\".", &claude));
+
+    c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    c.append(&titulo("Serviços (sv)"));
+    let favs = texto_entrada(&lista(&cfg.servicos.favoritos), 34);
+    let u = ui.clone();
+    favs.connect_changed(move |e| mudar(&u, |c| c.servicos.favoritos = de_lista(&e.text())));
+    c.append(&opcao("Favoritos", "O que aparece com \"sv\" sozinho, sem o .service. Os que falharam aparecem sempre.", &favs));
+
+    c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    c.append(&titulo("Tailscale (ts)"));
+    let mut pares: Vec<String> = cfg.tailscale.usuarios.iter().map(|(a, u)| format!("{a}={u}")).collect();
+    pares.sort();
+    let usuarios = texto_entrada(&pares.join(", "), 34);
+    let u = ui.clone();
+    usuarios.connect_changed(move |e| {
+        let mapa = de_lista(&e.text()).into_iter().filter_map(|p| p.split_once('=').map(|(a, b)| (a.trim().to_string(), b.trim().to_string()))).collect();
+        mudar(&u, |c| c.tailscale.usuarios = mapa)
+    });
+    c.append(&opcao("Usuário do SSH", "Por aparelho: vps=ubuntu, raspberry=pi", &usuarios));
+    c
+}
+
 fn plugins(ui: &Rc<Ui>) -> gtk::Box {
     let c = coluna();
     c.append(&explicacao(
@@ -278,7 +346,7 @@ fn plugins(ui: &Rc<Ui>) -> gtk::Box {
     if instalados.is_empty() {
         c.append(&titulo("Nenhum plugin instalado"));
     }
-    let cfg = ui.cfg.borrow().clone();
+    let cfg = ui.cfg.read().unwrap().clone();
     for p in &instalados {
         let m = &p.manifesto;
         let ligado = gtk::Switch::builder().active(!cfg.categorias.esconder.contains(&m.nome)).build();

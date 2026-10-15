@@ -25,9 +25,6 @@ fn json(cmd: &[&str]) -> Option<serde_json::Value> {
     serde_json::from_slice(&out.stdout).ok()
 }
 
-fn exec(cmd: &[&str]) -> Effect {
-    Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: false, cwd: None }
-}
 
 fn texto(v: &serde_json::Value, k: &str) -> String {
     v.get(k).and_then(|x| x.as_str()).unwrap_or_default().to_string()
@@ -64,7 +61,7 @@ fn listar() -> Vec<Janela> {
                     titulo: texto(c, "title"),
                     icone: classe.to_lowercase(),
                     app: classe,
-                    ir: exec(&["hyprctl", "dispatch", "focuswindow", &format!("address:{}", texto(c, "address"))]),
+                    ir: Effect::exec(&["hyprctl", "dispatch", "focuswindow", &format!("address:{}", texto(c, "address"))]),
                 }
             })
             .collect();
@@ -78,7 +75,7 @@ fn listar() -> Vec<Janela> {
             .map(|w| {
                 let app = texto(w, "app_id");
                 let id = w.get("id").and_then(|i| i.as_u64()).unwrap_or(0).to_string();
-                Janela { titulo: texto(w, "title"), icone: app.to_lowercase(), app, ir: exec(&["niri", "msg", "action", "focus-window", "--id", &id]) }
+                Janela { titulo: texto(w, "title"), icone: app.to_lowercase(), app, ir: Effect::exec(&["niri", "msg", "action", "focus-window", "--id", &id]) }
             })
             .collect();
     }
@@ -94,7 +91,7 @@ fn listar() -> Vec<Janela> {
                     .unwrap_or_default()
                     .to_string();
                 let id = n.get("id").and_then(|i| i.as_u64()).unwrap_or(0);
-                saida.push(Janela { titulo: texto(n, "name"), icone: app.to_lowercase(), app, ir: exec(&["swaymsg", &format!("[con_id={id}] focus")]) });
+                saida.push(Janela { titulo: texto(n, "name"), icone: app.to_lowercase(), app, ir: Effect::exec(&["swaymsg", &format!("[con_id={id}] focus")]) });
             }
             for filhos in ["nodes", "floating_nodes"] {
                 for f in n.get(filhos).and_then(|f| f.as_array()).into_iter().flatten() {
@@ -129,7 +126,7 @@ fn listar() -> Vec<Janela> {
                 let palavras: Vec<&str> = l.split_whitespace().collect();
                 let (id, classe) = (*palavras.first()?, palavras.get(2)?.rsplit('.').next()?.to_string());
                 let titulo = depois_de(l, 4)?.to_string();
-                Some(Janela { titulo, icone: classe.to_lowercase(), app: classe, ir: exec(&["wmctrl", "-ia", id]) })
+                Some(Janela { titulo, icone: classe.to_lowercase(), app: classe, ir: Effect::exec(&["wmctrl", "-ia", id]) })
             })
             .collect();
     }

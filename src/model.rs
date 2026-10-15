@@ -12,13 +12,27 @@ pub enum Effect {
     Open { uri: String },
     /// Copia o texto pra área de transferência.
     Copy { text: String },
-    /// Roda um comando. Com terminal = true, roda dentro do terminal configurado.
+    /// Roda um comando. Com terminal = true, roda dentro do terminal configurado (cmd vazio =
+    /// só abre o terminal na pasta). hold deixa o terminal aberto quando o comando termina;
+    /// tab abre numa aba da janela que já está aberta (Konsole, GNOME Terminal, Xfce).
     Exec {
         cmd: Vec<String>,
         #[serde(default)]
         terminal: bool,
         #[serde(default)]
         cwd: Option<String>,
+        #[serde(default)]
+        hold: bool,
+        #[serde(default)]
+        tab: bool,
+    },
+    /// Roda um comando em segundo plano e avisa numa notificação quando terminar
+    /// ("git pull", "docker restart"...). `label` é o nome que aparece no aviso.
+    Task {
+        cmd: Vec<String>,
+        #[serde(default)]
+        cwd: Option<String>,
+        label: String,
     },
     /// Troca o texto da busca e deixa a janela aberta ("vs " pra entrar num plugin).
     Query { text: String },
@@ -56,6 +70,33 @@ pub struct Item {
     /// "Pastas", "Imagens"...).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
+}
+
+impl Effect {
+    /// Abre um terminal na pasta, opcionalmente rodando um comando.
+    pub fn terminal(cmd: &[&str], cwd: Option<&str>) -> Effect {
+        Effect::Exec {
+            cmd: cmd.iter().map(|s| s.to_string()).collect(),
+            terminal: true,
+            cwd: cwd.map(String::from),
+            hold: false,
+            tab: false,
+        }
+    }
+    /// Comando no terminal que fica aberto no fim (status, ping...).
+    pub fn terminal_segurando(cmd: &[&str]) -> Effect {
+        Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: true, cwd: None, hold: true, tab: false }
+    }
+    /// Comando solto, fora do terminal.
+    pub fn exec(cmd: &[&str]) -> Effect {
+        Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: false, cwd: None, hold: false, tab: false }
+    }
+    pub fn tarefa(cmd: &[&str], cwd: Option<&str>, label: impl Into<String>) -> Effect {
+        Effect::Task { cmd: cmd.iter().map(|s| s.to_string()).collect(), cwd: cwd.map(String::from), label: label.into() }
+    }
+    pub fn abrir_caminho(caminho: &str) -> Effect {
+        Effect::Open { uri: gtk::gio::prelude::FileExt::uri(&gtk::gio::File::for_path(caminho)).to_string() }
+    }
 }
 
 impl Item {

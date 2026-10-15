@@ -115,6 +115,9 @@ pub fn arrange(engine: &Engine, results: &[Option<Vec<Item>>], cfg: &Config, key
     let mut rows = Vec::new();
     for mut g in grupos {
         g.itens.sort_by(|a, b| b.1.score.total_cmp(&a.1.score));
+        // A mesma coisa vinda de dois provedores (a pasta que o Baloo também achou) aparece uma vez
+        let mut vistos = std::collections::HashSet::new();
+        g.itens.retain(|(_, it)| vistos.insert((it.title.clone(), it.subtitle.clone())));
         let limite = if keyword_mode { usize::MAX } else { cfg.limite_de(g.categoria) };
         for (n, (i, it)) in g.itens.into_iter().take(limite).enumerate() {
             rows.push(Row { provider: i, category: g.categoria.to_string(), first_of_group: n == 0, item: it.clone() });

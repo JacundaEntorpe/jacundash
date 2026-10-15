@@ -3,6 +3,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
+
+/// A config que a tela e os provedores dividem (a aba de configurações muda ela na hora).
+pub type Compartilhada = Arc<RwLock<Config>>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -10,6 +14,62 @@ pub struct Config {
     pub aparencia: Aparencia,
     pub busca: Busca,
     pub categorias: Categorias,
+    pub repos: Repos,
+    pub servicos: Servicos,
+    pub tailscale: Tailscale,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Repos {
+    /// Onde procurar repositórios git (e as pastas comuns do "pa").
+    pub pastas: Vec<String>,
+    /// Quantas pastas pra dentro ele procura.
+    pub profundidade: usize,
+    /// Pastas que nunca entram (além das escondidas, que começam com ponto).
+    pub ignorar: Vec<String>,
+    /// Inclui as pastas abertas no VS Code (mesmo sem git) e sobe as recentes.
+    pub recentes_vscode: bool,
+    /// Editor do Enter ("code", "codium", "code --new-window", "kate"...).
+    pub editor: String,
+    /// Comando da ação "Abrir o Claude Code aqui".
+    pub claude: String,
+    /// Segundos entre uma varredura e outra.
+    pub reescanear: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Servicos {
+    /// O que aparece com "sv" sozinho (nome sem o .service). Os que falharam aparecem sempre.
+    pub favoritos: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Tailscale {
+    /// Usuário do SSH por aparelho: { vps = "ubuntu" }
+    pub usuarios: HashMap<String, String>,
+}
+
+impl Default for Repos {
+    fn default() -> Self {
+        Repos {
+            pastas: ["~/Projetos", "~/Projects", "~/Documentos", "~/Documents", "~/dev", "~/src", "~/code"].map(String::from).to_vec(),
+            profundidade: 4,
+            ignorar: ["node_modules", "vendor", "build", "dist", "target", "venv", "__pycache__"].map(String::from).to_vec(),
+            recentes_vscode: true,
+            editor: "code".into(),
+            claude: "claude".into(),
+            reescanear: 120,
+        }
+    }
+}
+
+impl Default for Servicos {
+    fn default() -> Self {
+        Servicos { favoritos: ["docker", "tailscaled", "ollama", "bluetooth", "NetworkManager", "sshd"].map(String::from).to_vec() }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,7 +110,14 @@ pub struct Categorias {
 
 impl Default for Config {
     fn default() -> Self {
-        Config { aparencia: Aparencia::default(), busca: Busca::default(), categorias: Categorias::default() }
+        Config {
+            aparencia: Aparencia::default(),
+            busca: Busca::default(),
+            categorias: Categorias::default(),
+            repos: Repos::default(),
+            servicos: Servicos::default(),
+            tailscale: Tailscale::default(),
+        }
     }
 }
 
@@ -73,7 +140,7 @@ impl Default for Busca {
 impl Default for Categorias {
     fn default() -> Self {
         Categorias {
-            ordem: ["Calculadora", "Aplicativos", "Janelas", "Jacundash", "Pastas", "Documentos", "Imagens", "Arquivos", "Web"].map(String::from).to_vec(),
+            ordem: ["Calculadora", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "Jacundash", "Pastas", "Documentos", "Imagens", "Arquivos", "Web"].map(String::from).to_vec(),
             limite: 6,
             limites: HashMap::from([("Aplicativos".into(), 8)]),
             esconder: vec![],

@@ -3,6 +3,7 @@
 //! Os resultados se separam em categorias: Pastas, Imagens, Documentos...
 
 use crate::config::home;
+use crate::sistema::til;
 use crate::engine::{Provider, Query};
 use crate::krunner;
 use crate::matcher;
@@ -16,15 +17,6 @@ pub struct Arquivos;
 
 const BALOO: (&str, &str) = ("org.kde.runners.baloo", "/runner");
 const LIMITE: usize = 40;
-
-fn til(p: &str) -> String {
-    let h = home();
-    let h = h.to_string_lossy();
-    match p.strip_prefix(h.as_ref()) {
-        Some(r) if r.is_empty() || r.starts_with('/') => format!("~{r}"),
-        _ => p.to_string(),
-    }
-}
 
 fn caminho_de(uri: &str) -> String {
     gio::File::for_uri(uri).path().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| uri.to_string())
