@@ -138,8 +138,39 @@ fn geral(ui: &Rc<Ui>) -> gtk::Box {
 
     c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     c.append(&titulo("Tecla de atalho"));
+    if crate::atalho::eh_kde() {
+        let tecla = texto_entrada(&crate::atalho::atual().unwrap_or_default(), 14);
+        tecla.set_placeholder_text(Some("Meta+Space"));
+        let ligar = gtk::Button::with_label("Ligar");
+        // Aparece quando a tecla é de outro atalho
+        let assumir = gtk::Button::with_label("Passar pro jacundash");
+        assumir.set_visible(false);
+        let resultado = explicacao("");
+        let (t, r, a) = (tecla.clone(), resultado.clone(), assumir.clone());
+        let fazer = move |tomar: bool| {
+            let res = crate::atalho::ligar(t.text().trim(), tomar);
+            a.set_visible(matches!(&res, Err(e) if e.contains(crate::atalho::OCUPADA)));
+            let msg = match res {
+                Ok(m) => m,
+                // a dica do terminal não serve aqui: o botão faz isso
+                Err(m) => m.split(" Pra passar").next().unwrap_or(&m).to_string(),
+            };
+            r.set_text(&msg);
+        };
+        let f = fazer.clone();
+        ligar.connect_clicked(move |_| f(false));
+        let f = fazer.clone();
+        assumir.connect_clicked(move |_| f(true));
+        tecla.connect_activate(move |_| fazer(false));
+        let linha = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        linha.append(&tecla);
+        linha.append(&ligar);
+        linha.append(&assumir);
+        c.append(&opcao("Abrir e fechar o jacundash", "Ex.: Meta+Space, Ctrl+Alt+K, Meta+F1. Vale na hora.", &linha));
+        c.append(&resultado);
+    }
     c.append(&explicacao(
-        "Ligue o comando \"jacundash\" a uma tecla nas configurações do seu desktop. Ele abre se estiver \
+        "Fora do KDE, ligue o comando \"jacundash\" a uma tecla nas configurações do seu desktop. Ele abre se estiver \
          fechado e fecha se estiver aberto.\n\
          KDE: Configurações do Sistema → Teclado → Atalhos → Adicionar novo → Comando.\n\
          Hyprland: bind = SUPER, SPACE, exec, jacundash   ·   Sway: bindsym $mod+space exec jacundash\n\

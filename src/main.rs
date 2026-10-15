@@ -4,6 +4,7 @@
 //! Cada `jacundash` depois disso só avisa ele pelo D-Bus: abre se estiver fechado, fecha se
 //! estiver aberto. Por isso abre na hora.
 
+mod atalho;
 mod config;
 mod config_ui;
 mod engine;
@@ -33,12 +34,41 @@ fn main() -> glib::ExitCode {
              jacundash \"texto\"     abre já buscando o texto\n\
              jacundash --config    abre as configurações\n\
              jacundash --enter     aperta Enter na janela aberta (pra scripts)\n\
+             jacundash --atalho Meta+Space   liga a tecla (no KDE vale na hora); sem a tecla, mostra a atual\n\
+             jacundash --atalho Alt+Space --assumir   tira a tecla de quem estiver usando e liga\n\
              jacundash --fundo     só deixa rodando em segundo plano, sem abrir (pra iniciar com a sessão)\n\
              jacundash --sair      encerra o que está em segundo plano\n\n\
              Config: ~/.config/jacundash/config.toml  ·  tema: ~/.config/jacundash/estilo.css\n\
              Plugins: ~/.config/jacundash/plugins/<nome>/plugin.toml"
         );
         return glib::ExitCode::SUCCESS;
+    }
+
+    // Tecla de atalho: não precisa abrir a janela pra isso
+    if args.get(1).map(String::as_str) == Some("--atalho") {
+        return match args.get(2) {
+            None => match atalho::atual() {
+                Some(t) => {
+                    println!("{t}");
+                    glib::ExitCode::SUCCESS
+                }
+                None => {
+                    eprintln!("O jacundash não tem tecla. Ligue com: jacundash --atalho Meta+Space");
+                    glib::ExitCode::FAILURE
+                }
+            },
+            Some(tecla) => match atalho::ligar(tecla, args.iter().any(|a| a == "--assumir")) {
+                Ok(msg) => {
+                    println!("{msg}");
+                    glib::ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    // 2 = a tecla é de outro atalho (o instalador pergunta se pode assumir)
+                    glib::ExitCode::from(if e.contains(atalho::OCUPADA) { 2 } else { 1 })
+                }
+            },
+        };
     }
 
     let app = gtk::Application::builder()

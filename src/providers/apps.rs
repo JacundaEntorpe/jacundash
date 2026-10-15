@@ -34,6 +34,9 @@ pub fn ler_apps() -> Vec<App> {
             continue;
         }
         let Some(id) = info.id() else { continue };
+        if id == "jacundash.desktop" {
+            continue; // não lista a si mesmo
+        }
         let desktop = info.downcast_ref::<gio_unix::DesktopAppInfo>();
         let generico = desktop.and_then(|d| d.generic_name()).map(|s| s.to_string()).unwrap_or_default();
         let palavras = desktop.map(|d| d.keywords().iter().map(|k| k.to_string()).collect::<Vec<_>>().join(" "));

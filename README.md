@@ -44,22 +44,25 @@ Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notifi
 
 ## Instalar
 
-Precisa de `gtk4` e, pra ficar no topo da tela no Wayland, `gtk4-layer-shell` (no Arch: `sudo pacman -S gtk4 gtk4-layer-shell`).
+Precisa de Rust, `gtk4` e, pra ficar no topo da tela no Wayland, `gtk4-layer-shell` (no Arch: `sudo pacman -S rust gtk4 gtk4-layer-shell`).
 
 ```bash
-cargo build --release
-install -Dm755 target/release/jacundash ~/.local/bin/jacundash
+git clone <este repositório> ~/Projetos/jacundash
+cd ~/Projetos/jacundash && ./instalar.sh
 ```
 
-Sem o `gtk4-layer-shell` (ou no X11): `cargo build --release --no-default-features`. Aí ele abre como uma janela comum, sem borda.
+O instalador compila, coloca o `jacundash` em `~/.local/bin`, põe no menu de apps, deixa ele iniciar escondido junto com a sessão e liga a tecla de atalho: a que tu digitar, ou (só Enter) a primeira livre entre Alt+Space, Meta+Space, Ctrl+Space... Nunca tira a tecla de outro atalho, como o KRunner. Pra atualizar: `git pull` e `./instalar.sh` de novo. Pra tirar: `./desinstalar.sh` (`--tudo` apaga a config também).
 
-Ligue o comando `jacundash` a uma tecla. Ele abre se estiver fechado e fecha se estiver aberto. Pra já ficar pronto quando a sessão começar, coloque `jacundash --fundo` pra iniciar junto (no KDE: Configurações do Sistema → Inicialização automática).
+Sem o `gtk4-layer-shell` (ou no X11) ele compila sem isso sozinho, e abre como uma janela comum, sem borda.
+
+No Hyprland e no Sway, coloque na config `exec-once = jacundash --fundo` (Hyprland) ou `exec jacundash --fundo` (Sway), e a tecla com `jacundash --atalho Meta+Space`, que mostra a linha certa pra colar.
 
 | Comando | |
 |---|---|
 | `jacundash` | abre, ou fecha se já estiver aberto |
 | `jacundash "texto"` | abre já buscando o texto |
 | `jacundash --config` | abre as configurações |
+| `jacundash --atalho Meta+Space` | liga a tecla (KDE: na hora; Hyprland/Sway: mostra a linha da config). Sem a tecla, mostra a atual |
 | `jacundash --enter` | aperta Enter na janela aberta (pra scripts: `jacundash "ia liberar" && sleep 1 && jacundash --enter`) |
 | `jacundash --fundo` | só deixa rodando em segundo plano |
 | `jacundash --sair` | encerra (o próximo `jacundash` recarrega config, tema e plugins) |
@@ -130,5 +133,4 @@ Qualquer programa vira plugin: ele recebe a busca em JSON e devolve os resultado
 
 ## Próximos passos
 
-- Instalador que liga a tecla de atalho e inicia junto com a sessão sozinho (KDE, Hyprland, Sway...)
 - Publicar (AUR, release com o binário pronto)
