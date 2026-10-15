@@ -66,7 +66,7 @@ impl Provider for Area {
                 .filter(|(_, t)| bate(t))
                 .enumerate()
                 .map(|(i, (id, t))| {
-                    let copia = Effect::Exec { cmd: vec!["sh".into(), "-c".into(), format!("cliphist decode {id} | wl-copy")], terminal: false, cwd: None, hold: false, tab: false };
+                    let copia = Effect::Exec { cmd: vec!["sh".into(), "-c".into(), format!("cliphist decode {id} | wl-copy")], terminal: false, cwd: None, hold: false, tab: None };
                     Item::new(t.chars().take(200).collect::<String>(), copia).icon("edit-paste").score(0.9 - i as f32 * 0.001)
                 })
                 .collect();

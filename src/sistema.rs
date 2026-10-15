@@ -107,16 +107,40 @@ pub fn tem_aba(terminal: &str) -> bool {
     matches!(nome_do_terminal(terminal).as_str(), "konsole" | "gnome-terminal" | "xfce4-terminal" | "ptyxis" | "kgx" | "wezterm" | "kitty")
 }
 
-/// Abre uma aba na pasta, na janela do terminal que já está aberta. false se não deu (aí
-/// quem chamou abre uma janela nova).
-pub fn aba_nova(terminal: &str, pasta: &str) -> bool {
+/// Abre uma aba na pasta, na janela do terminal que já está aberta, rodando `args` (vazio =
+/// só o shell). false se não deu (aí quem chamou abre uma janela nova).
+pub fn aba_nova(terminal: &str, pasta: &str, args: &[String], segurar: bool) -> bool {
+    let junto = args.iter().map(|a| shell_escape(a)).collect::<Vec<_>>().join(" ");
+    // Pra quem não tem "segurar": o comando espera um Enter no fim
+    let segurando = |args: &[String]| -> Vec<String> {
+        if segurar && !args.is_empty() { vec!["sh".into(), "-c".into(), format!("{junto}; printf '\\n[Enter fecha]'; read _")] } else { args.to_vec() }
+    };
+    let ok = |cmd: Vec<String>| {
+        let c: Vec<&str> = cmd.iter().map(String::as_str).collect();
+        rodar(&c, None, Duration::from_secs(3)).is_some_and(|o| o.status.success())
+    };
     match nome_do_terminal(terminal).as_str() {
-        // Cada janela do Konsole tem um nome próprio no D-Bus: o --new-tab não acha a aberta
-        "konsole" => crate::konsole::nova_aba(pasta),
+        // Cada janela do Konsole tem um nome próprio no D-Bus: o --new-tab não acha a aberta.
+        // O comando roda no shell da aba, que continua aberto depois (já é o "segurar").
+        "konsole" => crate::konsole::nova_aba(pasta, (!junto.is_empty()).then_some(junto.as_str())),
         // Só com o WezTerm aberto; senão o cli falha e vai janela nova
-        "wezterm" => rodar(&["wezterm", "cli", "spawn", "--cwd", pasta], None, Duration::from_secs(3)).is_some_and(|o| o.status.success()),
+        "wezterm" => {
+            let mut c: Vec<String> = ["wezterm", "cli", "spawn", "--cwd", pasta].map(String::from).to_vec();
+            if !args.is_empty() {
+                c.push("--".into());
+                c.extend(segurando(args));
+            }
+            ok(c)
+        }
         // Só com "allow_remote_control yes" na config do kitty
-        "kitty" => rodar(&["kitty", "@", "launch", "--type=tab", &format!("--cwd={pasta}")], None, Duration::from_secs(3)).is_some_and(|o| o.status.success()),
+        "kitty" => {
+            let mut c: Vec<String> = vec!["kitty".into(), "@".into(), "launch".into(), "--type=tab".into(), format!("--cwd={pasta}")];
+            if segurar && !args.is_empty() {
+                c.push("--hold".into());
+            }
+            c.extend(args.iter().cloned());
+            ok(c)
+        }
         // gnome-terminal, xfce4-terminal, ptyxis e kgx: o no_terminal já põe a opção de aba
         _ => false,
     }

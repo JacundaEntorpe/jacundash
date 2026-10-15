@@ -55,9 +55,10 @@ fn ativar(pid: u32) {
     let _ = std::fs::remove_file(arquivo);
 }
 
-/// Abre uma aba na pasta, no Konsole que já está aberto. false se não tem Konsole aberto
-/// (aí quem chamou abre uma janela nova).
-pub fn nova_aba(pasta: &str) -> bool {
+/// Abre uma aba na pasta, no Konsole que já está aberto, e roda `comando` nela (se tiver). O
+/// shell da aba continua aberto depois. false se não tem Konsole aberto (aí quem chamou abre
+/// uma janela nova).
+pub fn nova_aba(pasta: &str, comando: Option<&str>) -> bool {
     let Some(bus) = bus() else { return false };
     let Some((servico, pid)) = konsole_aberto(&bus) else { return false };
     let Some(janela) = ultima_janela(&bus, &servico) else { return false };
@@ -65,6 +66,9 @@ pub fn nova_aba(pasta: &str) -> bool {
         return false;
     };
     let _ = chamar(&bus, &servico, &janela, "org.kde.konsole.Window", "setCurrentSession", Some((sessao,).to_variant()), None);
+    if let Some(c) = comando {
+        let _ = chamar(&bus, &servico, &format!("/Sessions/{sessao}"), "org.kde.konsole.Session", "runCommand", Some((c,).to_variant()), None);
+    }
     ativar(pid);
     true
 }
@@ -75,6 +79,6 @@ mod tests {
     #[test]
     #[ignore]
     fn aba_no_konsole_aberto() {
-        assert!(super::nova_aba(&format!("{}/Projetos/jacundash", std::env::var("HOME").unwrap())));
+        assert!(super::nova_aba(&format!("{}/Projetos/jacundash", std::env::var("HOME").unwrap()), Some("echo 'aba do teste do jacundash, pode fechar'")));
     }
 }

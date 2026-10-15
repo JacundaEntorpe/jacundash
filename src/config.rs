@@ -179,6 +179,8 @@ pub struct Busca {
     pub fechar_ao_perder_foco: bool,
     /// Terminal dos comandos com terminal = true ("konsole", "kitty"...). Vazio = acha sozinho.
     pub terminal: String,
+    /// Comandos no terminal abrem numa aba nova da janela aberta (se o terminal tiver abas).
+    pub preferir_aba: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -223,6 +225,7 @@ impl Default for Busca {
             web: "https://www.google.com/search?q={}".into(),
             fechar_ao_perder_foco: true,
             terminal: String::new(),
+            preferir_aba: true,
         }
     }
 }

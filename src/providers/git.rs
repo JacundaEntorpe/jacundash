@@ -160,7 +160,7 @@ impl Provider for Git {
             let mut abrir: Vec<String> = editor.split_whitespace().map(String::from).collect();
             abrir.push(r.caminho.clone());
             let claude: Vec<&str> = claude.split_whitespace().collect();
-            let mut item = Item::new(&r.nome, Effect::Exec { cmd: abrir, terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: false })
+            let mut item = Item::new(&r.nome, Effect::Exec { cmd: abrir, terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: None })
                 .subtitle(partes.join("  ·  "))
                 .icon(icone)
                 .score(if s.pendente() { 0.9 } else { 0.5 });

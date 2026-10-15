@@ -77,6 +77,6 @@ impl Provider for Sistema {
             cmd.pop();
             cmd.push(std::env::var("XDG_SESSION_ID").unwrap_or_default());
         }
-        vec![Effect::Exec { cmd, terminal: false, cwd: None, hold: false, tab: false }]
+        vec![Effect::Exec { cmd, terminal: false, cwd: None, hold: false, tab: None }]
     }
 }

@@ -92,7 +92,7 @@ impl Provider for Historico {
             .filter(|c| c != termo)
             .enumerate()
             .map(|(i, c)| {
-                let rodar = Effect::Exec { cmd: vec!["sh".into(), "-c".into(), c.clone()], terminal: true, cwd: None, hold: true, tab: false };
+                let rodar = Effect::Exec { cmd: vec!["sh".into(), "-c".into(), c.clone()], terminal: true, cwd: None, hold: true, tab: None };
                 Item::new(c.clone(), rodar)
                     .subtitle(if i == 0 { "Enter roda no terminal  ·  Shift+Enter copia" } else { "" })
                     .icon("utilities-terminal")

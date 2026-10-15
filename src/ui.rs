@@ -738,7 +738,10 @@ impl Ui {
                 }
             }
             Effect::Copy { text } => copiar(&self.window, text),
-            Effect::Exec { cmd, terminal, cwd, hold, tab } => rodar(cmd, *terminal, cwd.as_deref(), *hold, *tab, &self.cfg.read().unwrap()),
+            Effect::Exec { cmd, terminal, cwd, hold, tab } => {
+                let cfg = self.cfg.read().unwrap();
+                rodar(cmd, *terminal, cwd.as_deref(), *hold, tab.unwrap_or(cfg.busca.preferir_aba), &cfg)
+            }
             Effect::Task { cmd, cwd, label } => sistema::tarefa(cmd.clone(), cwd.clone(), label.clone()),
             Effect::Internal { action } => match action.as_str() {
                 "config" => crate::config_ui::abrir(self),
@@ -820,8 +823,10 @@ fn icone(nome: &str, tamanho: i32) -> gtk::Image {
 /// Roda um comando solto (fora do jacundash), opcionalmente dentro de um terminal.
 fn rodar(cmd: &[String], terminal: bool, cwd: Option<&str>, segurar: bool, aba: bool, cfg: &Config) {
     use std::os::unix::process::CommandExt;
-    // Aba nova: cada terminal tem seu jeito (Konsole pelo D-Bus, WezTerm e kitty pelo cli...)
-    if terminal && aba && cmd.is_empty() && sistema::aba_nova(&cfg.busca.terminal, cwd.unwrap_or("~")) {
+    // Aba nova: cada terminal tem seu jeito (Konsole pelo D-Bus, WezTerm e kitty pelo cli...).
+    // Se não der, cai na janela nova logo abaixo.
+    let casa = crate::config::home().to_string_lossy().into_owned();
+    if terminal && aba && sistema::aba_nova(&cfg.busca.terminal, cwd.unwrap_or(&casa), cmd, segurar) {
         return;
     }
     let argv = if terminal { sistema::no_terminal(&cfg.busca.terminal, cmd, cwd, segurar, aba) } else { cmd.to_vec() };

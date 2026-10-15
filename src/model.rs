@@ -13,8 +13,9 @@ pub enum Effect {
     /// Copia o texto pra área de transferência.
     Copy { text: String },
     /// Roda um comando. Com terminal = true, roda dentro do terminal configurado (cmd vazio =
-    /// só abre o terminal na pasta). hold deixa o terminal aberto quando o comando termina;
-    /// tab abre numa aba da janela que já está aberta (Konsole, GNOME Terminal, Xfce).
+    /// só abre o terminal na pasta). hold deixa o terminal aberto quando o comando termina.
+    /// tab: true = aba nova na janela do terminal que já está aberta; false = janela nova;
+    /// sem nada = o que estiver nas configurações (de fábrica, tenta a aba primeiro).
     Exec {
         cmd: Vec<String>,
         #[serde(default)]
@@ -24,7 +25,7 @@ pub enum Effect {
         #[serde(default)]
         hold: bool,
         #[serde(default)]
-        tab: bool,
+        tab: Option<bool>,
     },
     /// Roda um comando em segundo plano e avisa numa notificação quando terminar
     /// ("git pull", "docker restart"...). `label` é o nome que aparece no aviso.
@@ -86,16 +87,16 @@ impl Effect {
             terminal: true,
             cwd: cwd.map(String::from),
             hold: false,
-            tab: false,
+            tab: None,
         }
     }
     /// Comando no terminal que fica aberto no fim (status, ping...).
     pub fn terminal_segurando(cmd: &[&str]) -> Effect {
-        Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: true, cwd: None, hold: true, tab: false }
+        Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: true, cwd: None, hold: true, tab: None }
     }
     /// Comando solto, fora do terminal.
     pub fn exec(cmd: &[&str]) -> Effect {
-        Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: false, cwd: None, hold: false, tab: false }
+        Effect::Exec { cmd: cmd.iter().map(|s| s.to_string()).collect(), terminal: false, cwd: None, hold: false, tab: None }
     }
     pub fn tarefa(cmd: &[&str], cwd: Option<&str>, label: impl Into<String>) -> Effect {
         Effect::Task { cmd: cmd.iter().map(|s| s.to_string()).collect(), cwd: cwd.map(String::from), label: label.into() }

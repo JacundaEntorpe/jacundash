@@ -53,7 +53,7 @@ Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notifi
 
 **Recentes:** com a busca vazia, o que você abriu por último. **Desligado de fábrica** (Configurações → Extras).
 
-**Aba nova do terminal:** Konsole (pelo D-Bus, no Konsole que já está aberto), GNOME Terminal, Xfce Terminal, Ptyxis, GNOME Console, WezTerm (aberto) e kitty (com `allow_remote_control yes`). Nos terminais sem abas (foot, alacritty, xterm) a ação nem aparece.
+**Aba nova do terminal:** todo comando de terminal (logs, SSH, `>comando`, status de serviço...) abre primeiro numa aba nova da janela do terminal que já está aberta; se o terminal não tiver abas ou não estiver aberto, abre janela. Dá pra desligar em Configurações → Geral, e "Abrir no terminal (janela nova)" sempre abre janela. Funciona no Konsole (pelo D-Bus, no Konsole que já está aberto), GNOME Terminal, Xfce Terminal, Ptyxis, GNOME Console, WezTerm (aberto) e kitty (com `allow_remote_control yes`). Nos terminais sem abas (foot, alacritty, xterm) a ação nem aparece.
 
 **Ações personalizadas:** em Configurações → Ações dá pra esconder qualquer ação (o `git pull` dos repositórios, por exemplo) e escolher quais viram botão na linha, por categoria.
 

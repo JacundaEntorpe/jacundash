@@ -145,6 +145,15 @@ fn geral(ui: &Rc<Ui>) -> gtk::Box {
     web.connect_changed(move |e| mudar(&u, |c| c.busca.web = e.text().into()));
     c.append(&opcao("Busca na web", "Usada no \"Pesquisar na web\". {} vira o texto digitado.", &web));
 
+    let aba = gtk::Switch::builder().active(cfg.busca.preferir_aba).build();
+    let u = ui.clone();
+    aba.connect_active_notify(move |s| mudar(&u, |c| c.busca.preferir_aba = s.is_active()));
+    c.append(&opcao(
+        "Comandos numa aba nova",
+        "Logs, SSH, >comando... abrem numa aba da janela do terminal que já está aberta, em vez de numa janela nova (Konsole, GNOME Terminal, Xfce, Ptyxis, WezTerm, kitty).",
+        &aba,
+    ));
+
     let term = texto_entrada(&cfg.busca.terminal, 16);
     term.set_placeholder_text(Some("acha sozinho"));
     let u = ui.clone();

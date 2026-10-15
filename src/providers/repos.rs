@@ -221,9 +221,9 @@ fn comando(texto: &str, caminho: &str) -> Vec<String> {
 /// As ações de pasta que repositórios e pastas comuns dividem.
 /// Terminal em janela nova e, se o terminal tiver abas, numa aba nova.
 pub fn acoes_de_terminal(mut item: Item, caminho: &str, terminal: &str) -> Item {
-    item = item.action("Abrir no terminal (janela nova)", "utilities-terminal", Effect::terminal(&[], Some(caminho)));
+    item = item.action("Abrir no terminal (janela nova)", "utilities-terminal", Effect::Exec { cmd: vec![], terminal: true, cwd: Some(caminho.into()), hold: false, tab: Some(false) });
     if crate::sistema::tem_aba(terminal) {
-        item = item.action("Abrir numa aba nova do terminal", "utilities-terminal", Effect::Exec { cmd: vec![], terminal: true, cwd: Some(caminho.into()), hold: false, tab: true });
+        item = item.action("Abrir numa aba nova do terminal", "utilities-terminal", Effect::Exec { cmd: vec![], terminal: true, cwd: Some(caminho.into()), hold: false, tab: Some(true) });
     }
     item
 }
@@ -235,7 +235,7 @@ fn acoes_de_pasta(item: Item, caminho: &str, cfg: &crate::config::Repos, termina
         item = item.action(
             "Abrir no editor",
             "accessories-text-editor",
-            Effect::Exec { cmd: comando(&cfg.editor, caminho), terminal: false, cwd: Some(caminho.into()), hold: false, tab: false },
+            Effect::Exec { cmd: comando(&cfg.editor, caminho), terminal: false, cwd: Some(caminho.into()), hold: false, tab: None },
         );
     }
     item
@@ -277,7 +277,7 @@ impl Provider for Repos {
             if !r.git {
                 sub += "  ·  recente do VS Code";
             }
-            let editor = Effect::Exec { cmd: comando(&cfg.editor, &r.caminho), terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: false };
+            let editor = Effect::Exec { cmd: comando(&cfg.editor, &r.caminho), terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: None };
             let mut item = Item::new(&r.nome, editor).subtitle(sub).icon(if r.git { "folder-git" } else { "folder" }).score(nota.min(1.0)).preview(r.caminho.clone());
             item = acoes_de_pasta(item, &r.caminho, &cfg, &terminal, false)
                 .action("Abrir no gerenciador de arquivos", "system-file-manager", Effect::abrir_caminho(&r.caminho));

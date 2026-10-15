@@ -63,7 +63,7 @@ Resposta:
 | `launch` | `app` | abre um app pelo id do .desktop (`"org.kde.kate.desktop"`) |
 | `open` | `uri` | abre arquivo, pasta ou URL no programa padrão (`"file:///home/..."`, `"https://..."`) |
 | `copy` | `text` | copia pra área de transferência |
-| `exec` | `cmd`, `terminal`, `cwd`, `hold`, `tab` | roda um comando; com `terminal: true`, dentro do terminal da config (`cmd` vazio só abre o terminal na pasta `cwd`). `hold: true` deixa o terminal aberto quando o comando termina; `tab: true` abre numa aba da janela que já está aberta (Konsole, GNOME Terminal, Xfce) |
+| `exec` | `cmd`, `terminal`, `cwd`, `hold`, `tab` | roda um comando; com `terminal: true`, dentro do terminal da config (`cmd` vazio só abre o terminal na pasta `cwd`). `hold: true` deixa o terminal aberto quando o comando termina; `tab: true` força uma aba nova na janela do terminal que já está aberta, `tab: false` força janela nova; sem `tab`, vale a configuração (de fábrica: aba primeiro) |
 | `task` | `cmd`, `cwd`, `label` | roda em segundo plano e avisa numa notificação quando terminar: "`label`: ok" ou "`label`: falhou" com o erro |
 | `query` | `text` | troca o texto da busca e deixa a janela aberta (pra entrar num submenu, por exemplo) |
 | `callback` | `data` | devolve pro plugin decidir (veja abaixo) |

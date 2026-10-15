@@ -14,7 +14,7 @@ impl Provider for Comando {
             return vec![];
         };
         vec![
-            Item::new(format!("Rodar: {cmd}"), Effect::Exec { cmd: vec!["sh".into(), "-c".into(), cmd.into()], terminal: true, cwd: None, hold: true, tab: false })
+            Item::new(format!("Rodar: {cmd}"), Effect::Exec { cmd: vec!["sh".into(), "-c".into(), cmd.into()], terminal: true, cwd: None, hold: true, tab: None })
                 .subtitle("No terminal, que fica aberto no fim  ·  Shift+Enter: em segundo plano")
                 .icon("utilities-terminal")
                 .score(1.0)
