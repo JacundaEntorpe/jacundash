@@ -39,6 +39,7 @@ fn main() -> glib::ExitCode {
              jacundash \"texto\"     abre já buscando o texto\n\
              jacundash --config    abre as configurações (--config acoes: já na página Ações)\n\
              jacundash --enter     aperta Enter na janela aberta (pra scripts)\n\
+             jacundash --tecla Down   aperta uma tecla na janela aberta (Down, Tab, shift+Return, Escape...)\n\
              jacundash --atalho Meta+Space   liga a tecla (no KDE vale na hora); sem a tecla, mostra a atual\n\
              jacundash --atalho Alt+Space --assumir   tira a tecla de quem estiver usando e liga\n\
              jacundash --fundo     só deixa rodando em segundo plano, sem abrir (pra iniciar com a sessão)\n\
@@ -139,6 +140,10 @@ fn main() -> glib::ExitCode {
         let args: Vec<String> = linha.arguments().iter().map(|a| a.to_string_lossy().into_owned()).collect();
         if args.iter().any(|a| a == "--sair") {
             app.quit();
+        } else if let Some(i) = args.iter().position(|a| a == "--tecla") {
+            if let (Some(ui), Some(t)) = (u.borrow().as_ref(), args.get(i + 1)) {
+                ui.simular_tecla(t);
+            }
         } else if args.iter().any(|a| a == "--enter") {
             if let Some(ui) = u.borrow().as_ref() {
                 ui.enter();

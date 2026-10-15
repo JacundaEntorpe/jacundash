@@ -85,6 +85,7 @@ No Hyprland e no Sway, coloque na config `exec-once = jacundash --fundo` (Hyprla
 | `jacundash --config` | abre as configurações |
 | `jacundash --atalho Meta+Space` | liga a tecla (KDE: na hora; Hyprland/Sway: mostra a linha da config). Sem a tecla, mostra a atual |
 | `jacundash --enter` | aperta Enter na janela aberta (pra scripts: `jacundash "ia liberar" && sleep 1 && jacundash --enter`) |
+| `jacundash --tecla Down` | aperta uma tecla na janela aberta (`Tab`, `shift+Return`, `Escape`...), pra scripts |
 | `jacundash --fundo` | só deixa rodando em segundo plano |
 | `jacundash --sair` | encerra (o próximo `jacundash` recarrega config, tema e plugins) |
 

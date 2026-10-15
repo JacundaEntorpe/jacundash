@@ -541,6 +541,22 @@ impl Ui {
         self.rodape.set_visible(tem);
         if let Some(row) = self.list.row_at_index(e.selecionado as i32) {
             self.list.select_row(Some(&row));
+            // A lista nova volta pro topo: rola até a linha selecionada (e, com as ações abertas,
+            // até a ação escolhida). Só dá pra medir depois que o GTK montar a lista, então
+            // espera dois quadros da tela.
+            let (scroll, list) = (self.scroll.clone(), self.list.clone());
+            let quadros = std::cell::Cell::new(0);
+            self.list.add_tick_callback(move |_, _| {
+                quadros.set(quadros.get() + 1);
+                if quadros.get() < 2 {
+                    return glib::ControlFlow::Continue;
+                }
+                mostrar_linha(&scroll, &list, &row); // a linha (com o menu inteiro, se couber)
+                if let Some(acao) = achar_classe(row.upcast_ref(), "acao-selecionada") {
+                    mostrar_linha(&scroll, &list, &acao); // e a ação escolhida, sempre
+                }
+                glib::ControlFlow::Break
+            });
         }
         drop(e);
         self.atualizar_previa();
@@ -821,6 +837,30 @@ impl Ui {
         self.selecionar(i);
     }
 
+    /// jacundash --tecla shift+Return: aperta uma tecla na janela aberta (pra scripts e testes).
+    pub fn simular_tecla(self: &Rc<Self>, nome: &str) {
+        if !self.window.is_visible() {
+            return;
+        }
+        let (mods, tecla) = match nome.rsplit_once('+') {
+            Some((m, t)) => (m.to_lowercase(), t),
+            None => (String::new(), nome),
+        };
+        let mut m = gdk::ModifierType::empty();
+        if mods.contains("shift") {
+            m |= gdk::ModifierType::SHIFT_MASK;
+        }
+        if mods.contains("ctrl") {
+            m |= gdk::ModifierType::CONTROL_MASK;
+        }
+        let Some(k) = gdk::Key::from_name(tecla) else {
+            return eprintln!("jacundash: tecla desconhecida: {tecla}");
+        };
+        // Shift+Tab no GTK chega como ISO_Left_Tab
+        let k = if k == gdk::Key::Tab && m.contains(gdk::ModifierType::SHIFT_MASK) { gdk::Key::ISO_Left_Tab } else { k };
+        self.tecla(k, m);
+    }
+
     /// O mesmo que apertar Enter (jacundash --enter).
     pub fn enter(self: &Rc<Self>) {
         if self.window.is_visible() {
@@ -930,8 +970,23 @@ fn copiar(window: &gtk::ApplicationWindow, texto: &str) {
     WidgetExt::display(window).clipboard().set_text(texto);
 }
 
+/// O primeiro widget dentro de `w` com essa classe de CSS.
+fn achar_classe(w: &gtk::Widget, classe: &str) -> Option<gtk::Widget> {
+    if w.has_css_class(classe) {
+        return Some(w.clone());
+    }
+    let mut filho = w.first_child();
+    while let Some(f) = filho {
+        if let Some(achado) = achar_classe(&f, classe) {
+            return Some(achado);
+        }
+        filho = f.next_sibling();
+    }
+    None
+}
+
 /// Rola a lista até a linha aparecer, sem tirar o foco do campo de busca.
-fn mostrar_linha(scroll: &gtk::ScrolledWindow, list: &gtk::ListBox, row: &gtk::ListBoxRow) {
+fn mostrar_linha(scroll: &gtk::ScrolledWindow, list: &gtk::ListBox, row: &impl IsA<gtk::Widget>) {
     let Some(r) = row.compute_bounds(list) else { return };
     let adj = scroll.vadjustment();
     let (topo, fundo) = (r.y() as f64, (r.y() + r.height()) as f64);
