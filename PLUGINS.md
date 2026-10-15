@@ -79,7 +79,7 @@ Quando o que fazer depende do plugin (rodar um `git pull` com aviso no fim, por 
 {"id": 9, "type": "callback", "data": "pull:/home/x/repo"}
 ```
 
-e responde com os efeitos que quer que o jacundash faça (pode ser uma lista vazia, se o plugin fez tudo sozinho):
+e responde com os efeitos que quer que o jacundash faça. Uma lista vazia fecha a janela (o plugin fez tudo sozinho); pra deixar aberta, responda `[{"type": "none"}]`:
 
 ```json
 {"id": 9, "effects": [{"type": "copy", "text": "feito"}]}

@@ -8,6 +8,7 @@ mod config;
 mod config_ui;
 mod engine;
 mod krunner;
+mod marcas;
 mod matcher;
 mod model;
 mod providers;
@@ -31,6 +32,7 @@ fn main() -> glib::ExitCode {
              jacundash             abre (ou fecha, se já estiver aberto). Ligue isso a uma tecla.\n\
              jacundash \"texto\"     abre já buscando o texto\n\
              jacundash --config    abre as configurações\n\
+             jacundash --enter     aperta Enter na janela aberta (pra scripts)\n\
              jacundash --fundo     só deixa rodando em segundo plano, sem abrir (pra iniciar com a sessão)\n\
              jacundash --sair      encerra o que está em segundo plano\n\n\
              Config: ~/.config/jacundash/config.toml  ·  tema: ~/.config/jacundash/estilo.css\n\
@@ -67,6 +69,8 @@ fn main() -> glib::ExitCode {
             Arc::new(providers::docker::Docker::default()),
             Arc::new(providers::servicos::Servicos::new(cfg.clone())),
             Arc::new(providers::tailscale::Tailscale::new(cfg.clone())),
+            Arc::new(providers::ia::Ia::new(cfg.clone())),
+            Arc::new(providers::hermes::Hermes::new(cfg.clone())),
             // As nossas pastas antes das do Baloo: na repetida, fica a que tem mais ações
             Arc::new(providers::repos::Pastas { varredura: varredura.clone(), cfg: cfg.clone() }),
             Arc::new(providers::arquivos::Arquivos),
@@ -85,6 +89,10 @@ fn main() -> glib::ExitCode {
         let args: Vec<String> = linha.arguments().iter().map(|a| a.to_string_lossy().into_owned()).collect();
         if args.iter().any(|a| a == "--sair") {
             app.quit();
+        } else if args.iter().any(|a| a == "--enter") {
+            if let Some(ui) = u.borrow().as_ref() {
+                ui.enter();
+            }
         } else if args.iter().any(|a| a == "--config") {
             if let Some(ui) = u.borrow().as_ref() {
                 config_ui::abrir(ui);

@@ -17,6 +17,53 @@ pub struct Config {
     pub repos: Repos,
     pub servicos: Servicos,
     pub tailscale: Tailscale,
+    pub ia: Ia,
+    pub hermes: Hermes,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Ia {
+    /// Modelo do Ollama ("gemma3:12b"). Vazio = o primeiro que estiver instalado.
+    pub modelo: String,
+    /// Endereço do Ollama.
+    pub url: String,
+    /// Open WebUI, pra ação "Continuar no Open WebUI". Vazio = sem a ação.
+    pub webui: String,
+    /// Quando a resposta termina, ela já vai pra área de transferência.
+    pub copiar_resposta: bool,
+    /// Quanto tempo o modelo fica na memória depois de responder ("5m", "1h", "0").
+    pub manter_carregado: String,
+    /// Instruções que vão antes de toda pergunta.
+    pub instrucoes: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Hermes {
+    /// Comando do Hermes (o agente que mexe no PC).
+    pub comando: String,
+}
+
+impl Default for Ia {
+    fn default() -> Self {
+        Ia {
+            modelo: String::new(),
+            url: "http://localhost:11434".into(),
+            webui: String::new(),
+            copiar_resposta: true,
+            manter_carregado: "5m".into(),
+            instrucoes: "Responda em português do Brasil, curto e direto (no máximo 3 frases). \
+                         Se a pergunta pedir um comando, responda só com o comando, sem crases."
+                .into(),
+        }
+    }
+}
+
+impl Default for Hermes {
+    fn default() -> Self {
+        Hermes { comando: "hermes".into() }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -117,6 +164,8 @@ impl Default for Config {
             repos: Repos::default(),
             servicos: Servicos::default(),
             tailscale: Tailscale::default(),
+            ia: Ia::default(),
+            hermes: Hermes::default(),
         }
     }
 }
@@ -140,7 +189,7 @@ impl Default for Busca {
 impl Default for Categorias {
     fn default() -> Self {
         Categorias {
-            ordem: ["Calculadora", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "Jacundash", "Pastas", "Documentos", "Imagens", "Arquivos", "Web"].map(String::from).to_vec(),
+            ordem: ["Calculadora", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Jacundash", "Pastas", "Documentos", "Imagens", "Arquivos", "Web"].map(String::from).to_vec(),
             limite: 6,
             limites: HashMap::from([("Aplicativos".into(), 8)]),
             esconder: vec![],

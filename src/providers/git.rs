@@ -191,7 +191,9 @@ impl Provider for Git {
     }
     fn callback(&self, data: &str) -> Vec<Effect> {
         if data == "fetch" {
-            self.buscar_todos();
+            // Demora: roda por trás e a janela já fecha
+            let eu = Git { varredura: self.varredura.clone(), cfg: self.cfg.clone(), cache: Mutex::default() };
+            std::thread::spawn(move || eu.buscar_todos());
         }
         vec![]
     }

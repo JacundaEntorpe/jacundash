@@ -10,3 +10,5 @@ pub mod git;
 pub mod repos;
 pub mod servicos;
 pub mod tailscale;
+pub mod hermes;
+pub mod ia;

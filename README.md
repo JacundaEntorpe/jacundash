@@ -29,6 +29,8 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 | `dk`, `ani-mal` | Containers Docker. Enter: logs (ou inicia, se estiver parado); Shift+Enter: shell, reiniciar, parar |
 | `sv`, `sv docker` | Serviços do systemd (sistema e usuário). `sv` sozinho mostra os favoritos e os que falharam. Enter: status; Shift+Enter: logs ao vivo, reiniciar, parar, iniciar |
 | `ts`, `vps` | Aparelhos do Tailscale, online primeiro. Enter copia o IP; Shift+Enter: SSH, copiar o nome, navegador, ping |
+| `ia qual comando lista portas abertas?` | Pergunta pra IA local (Ollama). Enter manda e a resposta aparece ali mesmo, enquanto o modelo escreve; quando termina, já vai pra área de transferência. `ia` sozinho mostra quanto de memória ela ocupa e deixa liberar (bom antes de jogar) |
+| `hm organiza meus Downloads` | Manda a tarefa pro Hermes (o agente que mexe no PC). Enter abre no terminal pra acompanhar e aprovar; Shift+Enter roda em segundo plano, com a resposta numa notificação |
 | `config` | Configurações do Jacundash (ou **Ctrl+,**) |
 | `gh:react`, `yt lofi`, `protondb elden ring` | Atalhos de busca da web (os do KDE e os seus) |
 | qualquer texto | "Pesquisar na web" no fim da lista |
@@ -37,6 +39,8 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notificação quando terminam.
 
 **Teclas:** setas ou Tab andam, Enter abre, **Shift+Enter** mostra as outras ações do item, Esc fecha (ou fecha as ações). Clicar fora ou trocar de janela também fecha.
+
+**Fixar e esconder:** todo resultado tem, no Shift+Enter, "Fixar no topo" (ele e a categoria dele sobem) e "Esconder este resultado". Pra desfazer: aba de configurações → Categorias.
 
 ## Instalar
 
@@ -56,6 +60,7 @@ Ligue o comando `jacundash` a uma tecla. Ele abre se estiver fechado e fecha se 
 | `jacundash` | abre, ou fecha se já estiver aberto |
 | `jacundash "texto"` | abre já buscando o texto |
 | `jacundash --config` | abre as configurações |
+| `jacundash --enter` | aperta Enter na janela aberta (pra scripts: `jacundash "ia liberar" && sleep 1 && jacundash --enter`) |
 | `jacundash --fundo` | só deixa rodando em segundo plano |
 | `jacundash --sair` | encerra (o próximo `jacundash` recarrega config, tema e plugins) |
 
@@ -98,6 +103,11 @@ favoritos = ["docker", "tailscaled", "ollama"]   # o que aparece com "sv" sozinh
 [tailscale.usuarios]
 vps = "ubuntu"        # usuário do SSH por aparelho
 
+[ia]
+modelo = "gemma3:12b"      # vazio = o primeiro instalado no Ollama
+webui = "http://localhost:8080"   # ação "Continuar no Open WebUI"
+manter_carregado = "5m"
+
 [categorias]
 ordem = ["Calculadora", "Aplicativos", "SSH", "Web"]   # desempate entre categorias
 limite = 6                                             # itens por categoria
@@ -120,5 +130,5 @@ Qualquer programa vira plugin: ele recebe a busca em JSON e devolve os resultado
 
 ## Próximos passos
 
-- IA local (Ollama) e Hermes, que hoje estão no krocket
-- Fixar e esconder itens, abrir com o mesmo atalho já configurado no desktop
+- Instalador que liga a tecla de atalho e inicia junto com a sessão sozinho (KDE, Hyprland, Sway...)
+- Publicar (AUR, release com o binário pronto)

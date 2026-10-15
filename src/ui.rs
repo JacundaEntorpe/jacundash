@@ -4,6 +4,8 @@
 use crate::config::{Compartilhada, Config, pasta_config};
 use crate::engine::{self, Batch, Engine, Row};
 use crate::model::{Effect, Item};
+use crate::marcas::{self, Marca, Marcas};
+use crate::model::Action;
 use crate::providers::apps;
 use crate::sistema;
 use gtk::prelude::*;
@@ -26,6 +28,8 @@ pub struct Ui {
     /// Muda com o app aberto (aba de configurações).
     pub cfg: Compartilhada,
     pub configuracoes: RefCell<Option<gtk::Window>>,
+    /// Resultados fixados no topo e escondidos.
+    pub marcas: RefCell<Marcas>,
     tx: async_channel::Sender<Batch>,
     efeitos_tx: async_channel::Sender<Vec<Effect>>,
     uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>,
@@ -108,6 +112,7 @@ impl Ui {
             engine: Rc::new(engine),
             cfg: cfg_compartilhada,
             configuracoes: RefCell::default(),
+            marcas: RefCell::new(Marcas::carregar()),
             tx,
             efeitos_tx,
             uso_apps,
@@ -132,9 +137,33 @@ impl Ui {
         let u = ui.clone();
         glib::spawn_future_local(async move {
             while let Ok(efeitos) = efeitos_rx.recv().await {
+                if efeitos.is_empty() {
+                    u.esconder();
+                }
                 for ef in efeitos {
                     u.executar(&ef, None);
                 }
+            }
+        });
+
+        // Provedor pediu pra refazer a busca (resposta da IA chegando)
+        let (atualizar_tx, atualizar_rx) = async_channel::bounded::<()>(1);
+        engine::ligar_atualizacao(atualizar_tx);
+        let u = ui.clone();
+        glib::spawn_future_local(async move {
+            while atualizar_rx.recv().await.is_ok() {
+                if u.window.is_visible() {
+                    u.rebuscar();
+                }
+            }
+        });
+
+        let (copiar_tx, copiar_rx) = async_channel::unbounded::<String>();
+        engine::ligar_copiar(copiar_tx);
+        let u = ui.clone();
+        glib::spawn_future_local(async move {
+            while let Ok(texto) = copiar_rx.recv().await {
+                copiar(&u.window, &texto);
             }
         });
 
@@ -178,6 +207,7 @@ impl Ui {
     }
 
     pub fn mostrar_com(self: &Rc<Self>, texto: &str) {
+        engine::VISIVEL.store(true, std::sync::atomic::Ordering::Relaxed);
         self.entry.set_text(texto);
         self.buscar();
         self.window.present();
@@ -186,7 +216,20 @@ impl Ui {
     }
 
     pub fn esconder(&self) {
+        engine::VISIVEL.store(false, std::sync::atomic::Ordering::Relaxed);
         self.window.set_visible(false);
+    }
+
+    /// Refaz a busca sem limpar a lista nem perder a linha selecionada: cada provedor
+    /// troca os seus resultados quando responder.
+    fn rebuscar(self: &Rc<Self>) {
+        let texto = self.entry.text().to_string();
+        let geracao = {
+            let mut e = self.estado.borrow_mut();
+            e.geracao += 1;
+            e.geracao
+        };
+        self.engine.search(&texto, geracao, &self.tx, &self.cfg.read().unwrap());
     }
 
     /// Aplica largura, altura e distância do topo depois de mudar a config.
@@ -243,9 +286,62 @@ impl Ui {
         });
     }
 
+    /// Tira os escondidos, sobe os fixados e coloca "Fixar" e "Esconder" nas ações de cada item.
+    fn com_marcas(&self, resultados: &[Option<Vec<Item>>]) -> Vec<Option<Vec<Item>>> {
+        let m = self.marcas.borrow();
+        resultados
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let r = r.as_ref()?;
+                let categoria_padrao = self.engine.providers[i].category();
+                Some(
+                    r.iter()
+                        .filter_map(|it| {
+                            if matches!(it.effect, Effect::None) {
+                                return Some(it.clone()); // dicas e avisos não se marcam
+                            }
+                            let ch = marcas::chave(it.category.as_deref().unwrap_or(categoria_padrao), it);
+                            if m.escondido(&ch) {
+                                return None;
+                            }
+                            let mut it = it.clone();
+                            let fixado = m.fixado(&ch);
+                            if fixado {
+                                it.score += 1.0;
+                                it.subtitle = if it.subtitle.is_empty() { "fixado".into() } else { format!("fixado  ·  {}", it.subtitle) };
+                            }
+                            let rotulo = if fixado { "Desafixar" } else { "Fixar no topo" };
+                            it.actions.push(Action { label: rotulo.into(), icon: "pin".into(), effect: Effect::Internal { action: "fixar".into() } });
+                            it.actions.push(Action { label: "Esconder este resultado".into(), icon: "view-hidden".into(), effect: Effect::Internal { action: "esconder".into() } });
+                            Some(it)
+                        })
+                        .collect(),
+                )
+            })
+            .collect()
+    }
+
+    /// Fixa/desafixa ou esconde a linha selecionada.
+    fn marcar(self: &Rc<Self>, esconder: bool) {
+        let marca = {
+            let e = self.estado.borrow();
+            let Some(linha) = e.linhas.get(e.selecionado) else { return };
+            Marca { chave: marcas::chave(&linha.category, &linha.item), titulo: linha.item.title.clone(), categoria: linha.category.clone() }
+        };
+        if esconder {
+            self.marcas.borrow_mut().esconder(marca);
+        } else {
+            self.marcas.borrow_mut().alternar_fixado(marca);
+        }
+        self.estado.borrow_mut().acoes = None;
+        self.desenhar();
+    }
+
     fn desenhar(&self) {
         let mut e = self.estado.borrow_mut();
-        e.linhas = engine::arrange(&self.engine, &e.resultados, &self.cfg.read().unwrap(), e.modo_palavra);
+        let resultados = self.com_marcas(&e.resultados);
+        e.linhas = engine::arrange(&self.engine, &resultados, &self.cfg.read().unwrap(), e.modo_palavra);
         self.list.remove_all();
         for (i, linha) in e.linhas.iter().enumerate() {
             let acoes = e.acoes.filter(|(l, _)| *l == i).map(|(_, a)| a);
@@ -281,7 +377,16 @@ impl Ui {
         let titulo = gtk::Label::new(Some(&linha.item.title));
         titulo.add_css_class("titulo");
         titulo.set_xalign(0.0);
-        titulo.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        if linha.item.multiline {
+            titulo.set_wrap(true);
+            titulo.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+            titulo.set_hexpand(true);
+            titulo.set_max_width_chars(1);
+            titulo.set_selectable(false);
+            textos.set_orientation(gtk::Orientation::Vertical);
+        } else {
+            titulo.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        }
         textos.append(&titulo);
         if !linha.item.subtitle.is_empty() {
             let sub = gtk::Label::new(Some(&linha.item.subtitle));
@@ -368,6 +473,13 @@ impl Ui {
         }
     }
 
+    /// O mesmo que apertar Enter (jacundash --enter).
+    pub fn enter(self: &Rc<Self>) {
+        if self.window.is_visible() {
+            self.ativar(false);
+        }
+    }
+
     /// Enter: ação padrão. Shift+Enter: abre (ou escolhe) as ações da linha.
     fn ativar(self: &Rc<Self>, mais: bool) {
         let (efeito, provedor) = {
@@ -391,7 +503,9 @@ impl Ui {
     }
 
     fn executar(self: &Rc<Self>, efeito: &Effect, provedor: Option<usize>) {
-        let fecha = !matches!(efeito, Effect::Query { .. } | Effect::None);
+        // O callback decide depois (pela resposta) se fecha
+        let fecha = !matches!(efeito, Effect::Query { .. } | Effect::None | Effect::Callback { .. })
+            && !matches!(efeito, Effect::Internal { action } if action == "fixar" || action == "esconder");
         match efeito {
             Effect::Launch { app } => {
                 if let Some(info) = gio_unix::DesktopAppInfo::new(app) {
@@ -408,12 +522,14 @@ impl Ui {
                     eprintln!("jacundash: não abriu {uri}: {e}");
                 }
             }
-            Effect::Copy { text } => WidgetExt::display(&self.window).clipboard().set_text(text),
+            Effect::Copy { text } => copiar(&self.window, text),
             Effect::Exec { cmd, terminal, cwd, hold, tab } => rodar(cmd, *terminal, cwd.as_deref(), *hold, *tab, &self.cfg.read().unwrap()),
             Effect::Task { cmd, cwd, label } => sistema::tarefa(cmd.clone(), cwd.clone(), label.clone()),
             Effect::Internal { action } => match action.as_str() {
                 "config" => crate::config_ui::abrir(self),
                 "recarregar" => self.recarregar(),
+                "fixar" => self.marcar(false),
+                "esconder" => self.marcar(true),
                 _ => eprintln!("jacundash: ação interna desconhecida: {action}"),
             },
             Effect::Query { text } => {
@@ -435,6 +551,23 @@ impl Ui {
             self.esconder();
         }
     }
+}
+
+/// Copia pra área de transferência. No Wayland o desktop só deixa o app copiar logo depois de
+/// uma tecla ou clique de verdade (não vale pra resposta da IA que chega depois, nem pro
+/// jacundash --enter); o wl-copy não tem esse problema, então ele vai na frente quando existe.
+fn copiar(window: &gtk::ApplicationWindow, texto: &str) {
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() && sistema::tem("wl-copy") {
+        use std::io::Write;
+        if let Ok(mut filho) = std::process::Command::new("wl-copy").stdin(std::process::Stdio::piped()).spawn() {
+            if let Some(mut entrada) = filho.stdin.take() {
+                let _ = entrada.write_all(texto.as_bytes());
+            }
+            std::thread::spawn(move || filho.wait());
+            return;
+        }
+    }
+    WidgetExt::display(window).clipboard().set_text(texto);
 }
 
 /// Rola a lista até a linha aparecer, sem tirar o foco do campo de busca.

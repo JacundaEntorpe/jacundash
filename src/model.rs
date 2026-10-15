@@ -70,6 +70,9 @@ pub struct Item {
     /// "Pastas", "Imagens"...).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
+    /// Título longo em várias linhas (a resposta da IA), em vez de cortar com "...".
+    #[serde(default)]
+    pub multiline: bool,
 }
 
 impl Effect {
@@ -101,7 +104,7 @@ impl Effect {
 
 impl Item {
     pub fn new(title: impl Into<String>, effect: Effect) -> Self {
-        Item { title: title.into(), subtitle: String::new(), icon: String::new(), score: 0.5, effect, actions: vec![], category: None }
+        Item { title: title.into(), subtitle: String::new(), icon: String::new(), score: 0.5, effect, actions: vec![], category: None, multiline: false }
     }
     pub fn subtitle(mut self, s: impl Into<String>) -> Self {
         self.subtitle = s.into();

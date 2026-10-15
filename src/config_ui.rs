@@ -31,6 +31,7 @@ pub fn abrir(ui: &Rc<Ui>) {
     pilha.add_titled(&pagina(aparencia(ui)), Some("aparencia"), "Aparência");
     pilha.add_titled(&pagina(categorias(ui)), Some("categorias"), "Categorias");
     pilha.add_titled(&pagina(programacao(ui)), Some("programacao"), "Programação");
+    pilha.add_titled(&pagina(ia(ui)), Some("ia"), "IA");
     pilha.add_titled(&pagina(plugins(ui)), Some("plugins"), "Plugins");
 
     let lado = gtk::StackSidebar::new();
@@ -211,7 +212,57 @@ fn categorias(ui: &Rc<Ui>) -> gtk::Box {
     lista.add_css_class("boxed-list");
     preencher_categorias(ui, &lista);
     c.append(&lista);
+
+    c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    c.append(&titulo("Fixados e escondidos"));
+    c.append(&explicacao("No jacundash, Shift+Enter num resultado tem \"Fixar no topo\" e \"Esconder este resultado\". Pra desfazer, é aqui."));
+    let marcas = gtk::ListBox::new();
+    marcas.set_selection_mode(gtk::SelectionMode::None);
+    marcas.add_css_class("boxed-list");
+    preencher_marcas(ui, &marcas);
+    c.append(&marcas);
     c
+}
+
+fn preencher_marcas(ui: &Rc<Ui>, lista: &gtk::ListBox) {
+    lista.remove_all();
+    let m = ui.marcas.borrow().clone();
+    if m.fixados.is_empty() && m.escondidos.is_empty() {
+        let l = explicacao("Nada fixado nem escondido.");
+        l.set_margin_top(8);
+        l.set_margin_bottom(8);
+        l.set_margin_start(10);
+        lista.append(&l);
+        return;
+    }
+    for (escondido, marca) in m.fixados.iter().map(|x| (false, x)).chain(m.escondidos.iter().map(|x| (true, x))) {
+        let linha = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        linha.set_margin_top(4);
+        linha.set_margin_bottom(4);
+        linha.set_margin_start(10);
+        linha.set_margin_end(10);
+        let nome = gtk::Label::new(Some(&format!("{}  ·  {}", marca.titulo, marca.categoria)));
+        nome.set_hexpand(true);
+        nome.set_xalign(0.0);
+        nome.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        linha.append(&gtk::Image::from_icon_name(if escondido { "view-hidden" } else { "pin" }));
+        linha.append(&nome);
+        let botao = gtk::Button::with_label(if escondido { "Mostrar de novo" } else { "Desafixar" });
+        botao.add_css_class("flat");
+        let (u, l, chave) = (ui.clone(), lista.clone(), marca.chave.clone());
+        botao.connect_clicked(move |_| {
+            {
+                let mut m = u.marcas.borrow_mut();
+                m.fixados.retain(|x| x.chave != chave);
+                m.escondidos.retain(|x| x.chave != chave);
+                m.salvar();
+            }
+            let (u, l) = (u.clone(), l.clone());
+            glib::idle_add_local_once(move || preencher_marcas(&u, &l));
+        });
+        linha.append(&botao);
+        lista.append(&linha);
+    }
 }
 
 fn preencher_categorias(ui: &Rc<Ui>, lista: &gtk::ListBox) {
@@ -333,6 +384,56 @@ fn programacao(ui: &Rc<Ui>) -> gtk::Box {
         mudar(&u, |c| c.tailscale.usuarios = mapa)
     });
     c.append(&opcao("Usuário do SSH", "Por aparelho: vps=ubuntu, raspberry=pi", &usuarios));
+    c
+}
+
+/// IA local (Ollama) e Hermes.
+fn ia(ui: &Rc<Ui>) -> gtk::Box {
+    let c = coluna();
+    let cfg = ui.cfg.read().unwrap().clone();
+    c.append(&titulo("IA local (ia <pergunta>)"));
+    c.append(&explicacao("Usa o Ollama. A resposta aparece no próprio jacundash, enquanto o modelo escreve."));
+
+    let campos: [(&str, &str, String, i32, fn(&mut Config, String)); 4] = [
+        ("Modelo", "Ex.: gemma3:12b. Vazio = o primeiro instalado.", cfg.ia.modelo.clone(), 20, |c, v| c.ia.modelo = v),
+        ("Endereço do Ollama", "", cfg.ia.url.clone(), 26, |c, v| c.ia.url = v),
+        ("Open WebUI", "Pra ação \"Continuar no Open WebUI\". Vazio = sem a ação. Ex.: http://localhost:8080", cfg.ia.webui.clone(), 26, |c, v| c.ia.webui = v),
+        ("Manter na memória", "Quanto tempo o modelo fica carregado depois de responder: 5m, 1h, 0.", cfg.ia.manter_carregado.clone(), 8, |c, v| c.ia.manter_carregado = v),
+    ];
+    for (nome, desc, valor, largura, aplicar) in campos {
+        let e = texto_entrada(&valor, largura);
+        let u = ui.clone();
+        e.connect_changed(move |e| mudar(&u, |c| aplicar(c, e.text().to_string())));
+        c.append(&opcao(nome, desc, &e));
+    }
+
+    let copiar = gtk::Switch::builder().active(cfg.ia.copiar_resposta).build();
+    let u = ui.clone();
+    copiar.connect_active_notify(move |s| mudar(&u, |c| c.ia.copiar_resposta = s.is_active()));
+    c.append(&opcao("Copiar a resposta", "Quando termina, a resposta já vai pra área de transferência.", &copiar));
+
+    c.append(&titulo("Instruções"));
+    c.append(&explicacao("Vão antes de toda pergunta."));
+    let instrucoes = gtk::TextView::new();
+    instrucoes.set_wrap_mode(gtk::WrapMode::WordChar);
+    instrucoes.buffer().set_text(&cfg.ia.instrucoes);
+    instrucoes.set_height_request(80);
+    instrucoes.add_css_class("card");
+    instrucoes.set_top_margin(6);
+    instrucoes.set_left_margin(6);
+    let u = ui.clone();
+    instrucoes.buffer().connect_changed(move |b| {
+        let texto = b.text(&b.start_iter(), &b.end_iter(), false).to_string();
+        mudar(&u, |c| c.ia.instrucoes = texto)
+    });
+    c.append(&instrucoes);
+
+    c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    c.append(&titulo("Hermes (hm <tarefa>)"));
+    let hermes = texto_entrada(&cfg.hermes.comando, 16);
+    let u = ui.clone();
+    hermes.connect_changed(move |e| mudar(&u, |c| c.hermes.comando = e.text().into()));
+    c.append(&opcao("Comando", "O agente que mexe no PC.", &hermes));
     c
 }
 

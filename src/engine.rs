@@ -3,7 +3,38 @@
 use crate::config::Config;
 use crate::matcher;
 use crate::model::{Effect, Item};
-use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, OnceLock};
+
+static ATUALIZAR: OnceLock<async_channel::Sender<()>> = OnceLock::new();
+
+/// true enquanto a janela está aberta (um provedor pode avisar por notificação quando não está).
+pub static VISIVEL: AtomicBool = AtomicBool::new(false);
+
+/// Pede pra janela refazer a busca atual (a resposta da IA chegando aos poucos, por exemplo).
+/// Pode ser chamado de qualquer thread.
+pub fn pedir_atualizacao() {
+    if let Some(tx) = ATUALIZAR.get() {
+        let _ = tx.try_send(());
+    }
+}
+
+pub fn ligar_atualizacao(tx: async_channel::Sender<()>) {
+    let _ = ATUALIZAR.set(tx);
+}
+
+static COPIAR: OnceLock<async_channel::Sender<String>> = OnceLock::new();
+
+/// Copia pra área de transferência sem fechar a janela. Pode ser chamado de qualquer thread.
+pub fn copiar(texto: String) {
+    if let Some(tx) = COPIAR.get() {
+        let _ = tx.try_send(texto);
+    }
+}
+
+pub fn ligar_copiar(tx: async_channel::Sender<String>) {
+    let _ = COPIAR.set(tx);
+}
 
 pub struct Query {
     /// O texto como foi digitado (sem a palavra-chave, se tinha).
@@ -27,7 +58,8 @@ pub trait Provider: Send + Sync {
     }
     /// Roda numa thread própria; pode demorar (o resto da lista não espera).
     fn query(&self, q: &Query) -> Vec<Item>;
-    /// Resolve um Effect::Callback que este provedor criou. Roda numa thread.
+    /// Resolve um Effect::Callback que este provedor criou. Roda numa thread. Lista vazia fecha
+    /// a janela; pra deixar aberta, devolva [Effect::None].
     fn callback(&self, _data: &str) -> Vec<Effect> {
         vec![]
     }
