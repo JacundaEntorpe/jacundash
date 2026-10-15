@@ -20,6 +20,25 @@ pub struct Config {
     pub ia: Ia,
     pub hermes: Hermes,
     pub extras: Extras,
+    pub acoes: Acoes,
+}
+
+/// Quais ações (Shift+Enter e botões da linha) aparecem, por categoria.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Acoes {
+    /// Ações escondidas: { "Repositórios" = ["git pull"] }. "Todas" vale pra todas as categorias.
+    pub escondidas: HashMap<String, Vec<String>>,
+    /// Quais viram botão na linha, na ordem. Categoria que não está aqui: as 3 primeiras.
+    pub botoes: HashMap<String, Vec<String>>,
+}
+
+impl Acoes {
+    pub fn escondida(&self, categoria: &str, rotulo: &str) -> bool {
+        // "Desafixar" é o mesmo lugar do "Fixar no topo"
+        let rotulo = if rotulo == "Desafixar" { "Fixar no topo" } else { rotulo };
+        [categoria, "Todas"].iter().any(|c| self.escondidas.get(*c).is_some_and(|l| l.iter().any(|x| x == rotulo)))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -187,6 +206,7 @@ impl Default for Config {
             ia: Ia::default(),
             hermes: Hermes::default(),
             extras: Extras::default(),
+            acoes: Acoes::default(),
         }
     }
 }
@@ -210,9 +230,9 @@ impl Default for Busca {
 impl Default for Categorias {
     fn default() -> Self {
         Categorias {
-            ordem: ["Calculadora", "Conversor", "Comando", "Recentes", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Emoji", "Área de transferência", "Sistema", "Jacundash", "Abas abertas", "Pastas", "Documentos", "Imagens", "Arquivos", "Histórico do navegador", "Web"].map(String::from).to_vec(),
+            ordem: ["Ajuda", "Calculadora", "Conversor", "Comando", "Histórico de comandos", "Recentes", "Aplicativos", "Janelas", "Repositórios", "Git", "Docker", "Serviços", "Tailscale", "IA", "Hermes", "Emoji", "Área de transferência", "Sistema", "Jacundash", "Abas abertas", "Pastas", "Documentos", "Imagens", "Arquivos", "Histórico do navegador", "Web"].map(String::from).to_vec(),
             limite: 6,
-            limites: HashMap::from([("Aplicativos".into(), 8)]),
+            limites: HashMap::from([("Aplicativos".into(), 8), ("Ajuda".into(), 50)]),
             esconder: vec![],
         }
     }

@@ -8,6 +8,7 @@ mod atalho;
 mod config;
 mod config_ui;
 mod engine;
+mod konsole;
 mod krunner;
 mod marcas;
 mod markdown;
@@ -34,7 +35,7 @@ fn main() -> glib::ExitCode {
             "jacundash: lançador com categorias e plugins\n\n\
              jacundash             abre (ou fecha, se já estiver aberto). Ligue isso a uma tecla.\n\
              jacundash \"texto\"     abre já buscando o texto\n\
-             jacundash --config    abre as configurações\n\
+             jacundash --config    abre as configurações (--config acoes: já na página Ações)\n\
              jacundash --enter     aperta Enter na janela aberta (pra scripts)\n\
              jacundash --atalho Meta+Space   liga a tecla (no KDE vale na hora); sem a tecla, mostra a atual\n\
              jacundash --atalho Alt+Space --assumir   tira a tecla de quem estiver usando e liga\n\
@@ -97,6 +98,7 @@ fn main() -> glib::ExitCode {
             Arc::new(providers::calc::Calc),
             Arc::new(providers::conversor::Conversor::new()),
             Arc::new(providers::comando::Comando),
+            Arc::new(providers::historico::Historico::new()),
             Arc::new(recentes),
             Arc::new(providers::jacundash::Jacundash),
             Arc::new(apps),
@@ -120,6 +122,8 @@ fn main() -> glib::ExitCode {
         for p in providers::plugin::carregar() {
             provedores.push(Arc::new(p));
         }
+        let palavras = provedores.iter().map(|p| (p.keyword().to_string(), p.category().to_string())).collect();
+        provedores.push(Arc::new(providers::ajuda::Ajuda::new(palavras)));
         *u.borrow_mut() = Some(ui::Ui::new(app, Engine { providers: provedores }, cfg, uso, lista_recentes));
         // Continua rodando com a janela escondida
         std::mem::forget(app.hold());
@@ -134,9 +138,9 @@ fn main() -> glib::ExitCode {
             if let Some(ui) = u.borrow().as_ref() {
                 ui.enter();
             }
-        } else if args.iter().any(|a| a == "--config") {
+        } else if let Some(i) = args.iter().position(|a| a == "--config") {
             if let Some(ui) = u.borrow().as_ref() {
-                config_ui::abrir(ui);
+                config_ui::abrir_em(ui, args.get(i + 1).map(String::as_str));
             }
         } else if !args.iter().any(|a| a == "--fundo") {
             if let Some(ui) = u.borrow().as_ref() {

@@ -117,6 +117,7 @@ impl Provider for Git {
     fn query(&self, q: &Query) -> Vec<Item> {
         let editor = self.cfg.read().unwrap().repos.editor.clone();
         let claude = self.cfg.read().unwrap().repos.claude.clone();
+        let terminal = self.cfg.read().unwrap().busca.terminal.clone();
         let repos = self.varredura.repos();
         let st = self.status(&repos);
         let mut itens = Vec::new();
@@ -162,9 +163,8 @@ impl Provider for Git {
             let mut item = Item::new(&r.nome, Effect::Exec { cmd: abrir, terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: false })
                 .subtitle(partes.join("  ·  "))
                 .icon(icone)
-                .score(if s.pendente() { 0.9 } else { 0.5 })
-                .action("Abrir no terminal (janela nova)", "utilities-terminal", Effect::terminal(&[], Some(&r.caminho)))
-                .action("Abrir numa aba nova do terminal", "tab-new", Effect::Exec { cmd: vec![], terminal: true, cwd: Some(r.caminho.clone()), hold: false, tab: true })
+                .score(if s.pendente() { 0.9 } else { 0.5 });
+            item = crate::providers::repos::acoes_de_terminal(item, &r.caminho, &terminal)
                 .action("Abrir o Claude Code aqui", "dialog-messages", Effect::terminal(&claude, Some(&r.caminho)));
             if s.upstream {
                 item = item

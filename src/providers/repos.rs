@@ -219,12 +219,18 @@ fn comando(texto: &str, caminho: &str) -> Vec<String> {
 }
 
 /// As ações de pasta que repositórios e pastas comuns dividem.
-fn acoes_de_pasta(mut item: Item, caminho: &str, cfg: &crate::config::Repos, editor_tambem: bool) -> Item {
+/// Terminal em janela nova e, se o terminal tiver abas, numa aba nova.
+pub fn acoes_de_terminal(mut item: Item, caminho: &str, terminal: &str) -> Item {
+    item = item.action("Abrir no terminal (janela nova)", "utilities-terminal", Effect::terminal(&[], Some(caminho)));
+    if crate::sistema::tem_aba(terminal) {
+        item = item.action("Abrir numa aba nova do terminal", "utilities-terminal", Effect::Exec { cmd: vec![], terminal: true, cwd: Some(caminho.into()), hold: false, tab: true });
+    }
+    item
+}
+
+fn acoes_de_pasta(item: Item, caminho: &str, cfg: &crate::config::Repos, terminal: &str, editor_tambem: bool) -> Item {
     let claude: Vec<&str> = cfg.claude.split_whitespace().collect();
-    item = item
-        .action("Abrir no terminal (janela nova)", "utilities-terminal", Effect::terminal(&[], Some(caminho)))
-        .action("Abrir numa aba nova do terminal", "tab-new", Effect::Exec { cmd: vec![], terminal: true, cwd: Some(caminho.into()), hold: false, tab: true })
-        .action("Abrir o Claude Code aqui", "dialog-messages", Effect::terminal(&claude, Some(caminho)));
+    let mut item = acoes_de_terminal(item, caminho, terminal).action("Abrir o Claude Code aqui", "dialog-messages", Effect::terminal(&claude, Some(caminho)));
     if editor_tambem {
         item = item.action(
             "Abrir no editor",
@@ -252,6 +258,7 @@ impl Provider for Repos {
             return vec![];
         }
         let cfg = self.cfg.read().unwrap().repos.clone();
+        let terminal = self.cfg.read().unwrap().busca.terminal.clone();
         let agora = agora();
         let mut itens = Vec::new();
         for r in self.varredura.repos() {
@@ -272,7 +279,7 @@ impl Provider for Repos {
             }
             let editor = Effect::Exec { cmd: comando(&cfg.editor, &r.caminho), terminal: false, cwd: Some(r.caminho.clone()), hold: false, tab: false };
             let mut item = Item::new(&r.nome, editor).subtitle(sub).icon(if r.git { "folder-git" } else { "folder" }).score(nota.min(1.0)).preview(r.caminho.clone());
-            item = acoes_de_pasta(item, &r.caminho, &cfg, false)
+            item = acoes_de_pasta(item, &r.caminho, &cfg, &terminal, false)
                 .action("Abrir no gerenciador de arquivos", "system-file-manager", Effect::abrir_caminho(&r.caminho));
             if let Some(web) = &r.web {
                 item = item
@@ -302,6 +309,7 @@ impl Provider for Pastas {
             return vec![];
         }
         let cfg = self.cfg.read().unwrap().repos.clone();
+        let terminal = self.cfg.read().unwrap().busca.terminal.clone();
         let mut itens = Vec::new();
         for caminho in self.varredura.pastas() {
             let p = Path::new(&caminho);
@@ -313,7 +321,7 @@ impl Provider for Pastas {
             // O subtítulo é a pasta de cima, igual o Baloo: assim a mesma pasta não aparece duas vezes
             let pai = til(&p.parent().map(|x| x.to_string_lossy().into_owned()).unwrap_or_default());
             let item = Item::new(&nome, Effect::abrir_caminho(&caminho)).subtitle(pai).icon("folder").score(nota + 0.01).preview(caminho.clone());
-            itens.push(acoes_de_pasta(item, &caminho, &cfg, true).action("Copiar o caminho", "edit-copy", Effect::Copy { text: caminho.clone() }));
+            itens.push(acoes_de_pasta(item, &caminho, &cfg, &terminal, true).action("Copiar o caminho", "edit-copy", Effect::Copy { text: caminho.clone() }));
         }
         itens
     }

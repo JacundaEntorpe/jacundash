@@ -19,10 +19,11 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 
 | Digite | O que aparece |
 |---|---|
+| `help`, `ajuda`, `?` | Tudo o que dá pra digitar no jacundash (palavras-chave, prefixos, teclas). Enter já começa a busca com aquilo |
 | `kat` | Apps instalados (os mesmos do menu do desktop). Os que você mais abre sobem |
 | `2^10*3`, `15% de 80`, `sqrt(2)`, `=1/3` | Calculadora. Enter copia o resultado |
 | `10 usd em brl`, `5 km em milhas`, `100 f em c`, `2 gb em mb` | Conversor de moedas (cotação do dia) e unidades: comprimento, peso, dados, tempo, volume, velocidade, área, temperatura. Enter copia |
-| `>htop` | Roda o comando no terminal (que fica aberto no fim). Shift+Enter: em segundo plano |
+| `>htop`, `>git pu` | Roda o comando no terminal (que fica aberto no fim); embaixo, os comandos parecidos que você já rodou (pelo [Atuin](https://atuin.sh) se tiver, senão pelo histórico do bash, zsh ou fish). Shift+Enter: copiar ou rodar em segundo plano |
 | `:fogo`, `emoji fogo` | Emojis pelo nome em português. Enter copia |
 | `cb`, `cb senha` | O que você copiou antes (Klipper no KDE, cliphist no Hyprland/Sway). Enter copia de novo |
 | `desligar`, `bloquear`... | Comandos do sistema: bloquear, suspender, hibernar, reiniciar, desligar, sair. Reiniciar, desligar e sair pedem confirmação no KDE. **Desligado de fábrica** (Configurações → Extras) |
@@ -51,6 +52,10 @@ Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notifi
 **Prévia:** ao lado da lista, a imagem, o começo do texto ou o README (ou o conteúdo) da pasta do resultado selecionado. Dá pra desligar em Configurações → Extras.
 
 **Recentes:** com a busca vazia, o que você abriu por último. **Desligado de fábrica** (Configurações → Extras).
+
+**Aba nova do terminal:** Konsole (pelo D-Bus, no Konsole que já está aberto), GNOME Terminal, Xfce Terminal, Ptyxis, GNOME Console, WezTerm (aberto) e kitty (com `allow_remote_control yes`). Nos terminais sem abas (foot, alacritty, xterm) a ação nem aparece.
+
+**Ações personalizadas:** em Configurações → Ações dá pra esconder qualquer ação (o `git pull` dos repositórios, por exemplo) e escolher quais viram botão na linha, por categoria.
 
 **Fixar e esconder:** todo resultado tem, no Shift+Enter, "Fixar no topo" (ele e a categoria dele sobem) e "Esconder este resultado". Pra desfazer: aba de configurações → Categorias.
 

@@ -95,6 +95,33 @@ pub fn achar_terminal() -> String {
     "xterm".into()
 }
 
+fn nome_do_terminal(terminal: &str) -> String {
+    let t = if terminal.trim().is_empty() { achar_terminal() } else { terminal.to_string() };
+    let prog = t.split_whitespace().next().unwrap_or("").to_string();
+    std::path::Path::new(&prog).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or(prog)
+}
+
+/// Terminais que conseguem abrir uma aba na janela que já está aberta. Nos outros (foot,
+/// alacritty, xterm...) a ação "aba nova" nem aparece.
+pub fn tem_aba(terminal: &str) -> bool {
+    matches!(nome_do_terminal(terminal).as_str(), "konsole" | "gnome-terminal" | "xfce4-terminal" | "ptyxis" | "kgx" | "wezterm" | "kitty")
+}
+
+/// Abre uma aba na pasta, na janela do terminal que já está aberta. false se não deu (aí
+/// quem chamou abre uma janela nova).
+pub fn aba_nova(terminal: &str, pasta: &str) -> bool {
+    match nome_do_terminal(terminal).as_str() {
+        // Cada janela do Konsole tem um nome próprio no D-Bus: o --new-tab não acha a aberta
+        "konsole" => crate::konsole::nova_aba(pasta),
+        // Só com o WezTerm aberto; senão o cli falha e vai janela nova
+        "wezterm" => rodar(&["wezterm", "cli", "spawn", "--cwd", pasta], None, Duration::from_secs(3)).is_some_and(|o| o.status.success()),
+        // Só com "allow_remote_control yes" na config do kitty
+        "kitty" => rodar(&["kitty", "@", "launch", "--type=tab", &format!("--cwd={pasta}")], None, Duration::from_secs(3)).is_some_and(|o| o.status.success()),
+        // gnome-terminal, xfce4-terminal, ptyxis e kgx: o no_terminal já põe a opção de aba
+        _ => false,
+    }
+}
+
 /// O comando completo pra abrir `args` num terminal. Cada terminal recebe pasta, "segurar"
 /// (não fechar quando o comando termina) e aba nova de um jeito.
 pub fn no_terminal(terminal: &str, args: &[String], cwd: Option<&str>, segurar: bool, aba: bool) -> Vec<String> {
@@ -103,9 +130,7 @@ pub fn no_terminal(terminal: &str, args: &[String], cwd: Option<&str>, segurar: 
     let nome = std::path::Path::new(&t[0]).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let mut args = args.to_vec();
     let mut segurar = segurar;
-    if aba && nome == "konsole" {
-        t.push("--new-tab".into());
-    } else if aba && matches!(nome.as_str(), "gnome-terminal" | "xfce4-terminal") {
+    if aba && matches!(nome.as_str(), "gnome-terminal" | "xfce4-terminal" | "ptyxis" | "kgx") {
         t.push("--tab".into());
     }
     // Quem não tem opção de segurar: o próprio comando espera um Enter no fim
@@ -126,7 +151,8 @@ pub fn no_terminal(terminal: &str, args: &[String], cwd: Option<&str>, segurar: 
         "alacritty" => [pasta("--working-directory"), hold("--hold"), e(&args)].concat(),
         "wezterm" => [vec!["start".into()], pasta("--cwd"), fim(&args)].concat(),
         "ghostty" => [pasta_igual("--working-directory"), e(&args)].concat(),
-        "gnome-terminal" | "kgx" | "ptyxis" | "xfce4-terminal" => [pasta_igual("--working-directory"), fim(&args)].concat(),
+        "ptyxis" => [pasta("-d"), fim(&args)].concat(),
+        "gnome-terminal" | "kgx" | "xfce4-terminal" => [pasta_igual("--working-directory"), fim(&args)].concat(),
         "xterm" => [hold("-hold"), e(&args)].concat(),
         _ => e(&args),
     };
@@ -149,7 +175,9 @@ mod tests {
     #[test]
     fn terminais() {
         let a = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(no_terminal("konsole", &[], Some("/x"), false, true), a(&["konsole", "--new-tab", "--workdir", "/x"]));
+        assert_eq!(no_terminal("konsole", &[], Some("/x"), false, false), a(&["konsole", "--workdir", "/x"]));
+        assert_eq!(no_terminal("ptyxis", &[], Some("/x"), false, true), a(&["ptyxis", "--tab", "-d", "/x"]));
+        assert!(tem_aba("kitty") && tem_aba("/usr/bin/konsole") && !tem_aba("foot") && !tem_aba("alacritty"));
         assert_eq!(no_terminal("kitty", &a(&["ping", "1.1"]), None, true, false), a(&["kitty", "--hold", "ping", "1.1"]));
         assert_eq!(
             no_terminal("gnome-terminal", &a(&["ping", "a b"]), None, true, false),

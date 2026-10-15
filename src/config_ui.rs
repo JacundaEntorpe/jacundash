@@ -12,7 +12,17 @@ use std::rc::Rc;
 const EXTRAS: &[&str] = &["Pastas", "Imagens", "Documentos", "Áudio", "Vídeos"];
 
 pub fn abrir(ui: &Rc<Ui>) {
+    abrir_em(ui, None);
+}
+
+/// Abre as configurações já numa página ("geral", "extras", "acoes"...).
+pub fn abrir_em(ui: &Rc<Ui>, pagina_inicial: Option<&str>) {
     if let Some(w) = ui.configuracoes.borrow().as_ref() {
+        if let Some(p) = pagina_inicial {
+            if let Some(pilha) = w.child().and_then(|c| c.last_child()).and_then(|p| p.downcast::<gtk::Stack>().ok()) {
+                pilha.set_visible_child_name(p);
+            }
+        }
         w.present();
         return;
     }
@@ -31,10 +41,14 @@ pub fn abrir(ui: &Rc<Ui>) {
     pilha.add_titled(&pagina(aparencia(ui)), Some("aparencia"), "Aparência");
     pilha.add_titled(&pagina(extras(ui)), Some("extras"), "Extras");
     pilha.add_titled(&pagina(categorias(ui)), Some("categorias"), "Categorias");
+    pilha.add_titled(&pagina(acoes(ui)), Some("acoes"), "Ações");
     pilha.add_titled(&pagina(programacao(ui)), Some("programacao"), "Programação");
     pilha.add_titled(&pagina(ia(ui)), Some("ia"), "IA");
     pilha.add_titled(&pagina(plugins(ui)), Some("plugins"), "Plugins");
 
+    if let Some(p) = pagina_inicial {
+        pilha.set_visible_child_name(p);
+    }
     let lado = gtk::StackSidebar::new();
     lado.set_stack(&pilha);
     lado.set_width_request(170);
@@ -245,6 +259,94 @@ fn extras(ui: &Rc<Ui>) -> gtk::Box {
          Emoji: :fogo  (ou emoji fogo)\n\
          Área de transferência: cb  (o que você copiou antes)",
     ));
+    c
+}
+
+/// As ações que o jacundash já tem, por categoria (as dos plugins entram quando aparecem).
+const ACOES_CONHECIDAS: &[(&str, &[&str])] = &[
+    ("Todas", &["Fixar no topo", "Esconder este resultado"]),
+    ("Repositórios", &["Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "Abrir no gerenciador de arquivos", "Abrir o remote no navegador", "git pull", "Copiar o caminho"]),
+    ("Pastas", &["Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "Abrir no editor", "Abrir a pasta onde ele está", "Copiar o caminho"]),
+    ("Git", &["Abrir no terminal (janela nova)", "Abrir numa aba nova do terminal", "Abrir o Claude Code aqui", "git pull", "git push", "Abrir o remote no navegador"]),
+    ("Docker", &["Abrir um shell dentro", "Reiniciar", "Parar", "Ver os logs", "Copiar o nome"]),
+    ("Serviços", &["Ver os logs ao vivo", "Reiniciar", "Parar", "Iniciar"]),
+    ("Tailscale", &["SSH", "Copiar o nome (MagicDNS)", "Abrir no navegador", "Ping"]),
+    ("Aplicativos", &["Mostrar o arquivo .desktop"]),
+    ("Comando", &["Rodar em segundo plano (avisa quando terminar)", "Copiar o comando"]),
+    ("Histórico de comandos", &["Copiar o comando", "Rodar em segundo plano (avisa quando terminar)"]),
+    ("IA", &["Continuar no Open WebUI", "Perguntar de novo"]),
+    ("Hermes", &["Rodar em segundo plano (resposta numa notificação)"]),
+];
+
+/// Quais ações aparecem e quais viram botão na linha, por categoria.
+fn acoes(ui: &Rc<Ui>) -> gtk::Box {
+    let c = coluna();
+    c.append(&explicacao(
+        "Desligue o que você não usa: some do Shift+Enter e dos botões. Marque \"botão\" nas que devem aparecer \
+         como botão na linha (com o mouse em cima ou na linha selecionada). Sem nada marcado, os botões são as 3 primeiras. \
+         \"Todas\" vale pra todas as categorias. Ações de plugins e dos arquivos aparecem aqui depois de aparecerem num resultado.",
+    ));
+    // As conhecidas e as que já apareceram, sem repetir
+    let mut lista: Vec<(String, Vec<String>)> = ACOES_CONHECIDAS.iter().map(|(c, l)| (c.to_string(), l.iter().map(|s| s.to_string()).collect())).collect();
+    for (cat, rotulos) in ui.acoes_vistas.borrow().iter() {
+        match lista.iter_mut().find(|(c, _)| c == cat) {
+            Some((_, l)) => l.extend(rotulos.iter().filter(|r| !l.contains(r)).cloned().collect::<Vec<_>>()),
+            None => lista.push((cat.clone(), rotulos.clone())),
+        }
+    }
+    let cfg = ui.cfg.read().unwrap().acoes.clone();
+    for (cat, rotulos) in lista {
+        if rotulos.is_empty() {
+            continue;
+        }
+        c.append(&titulo(&cat));
+        let caixa = gtk::ListBox::new();
+        caixa.set_selection_mode(gtk::SelectionMode::None);
+        caixa.add_css_class("boxed-list");
+        let marcas: Rc<std::cell::RefCell<Vec<(String, gtk::CheckButton)>>> = Rc::default();
+        let padrao_botoes: Vec<&String> = rotulos.iter().filter(|r| !cfg.escondida(&cat, r)).take(3).collect();
+        for r in &rotulos {
+            let linha = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+            linha.set_margin_top(4);
+            linha.set_margin_bottom(4);
+            linha.set_margin_start(10);
+            linha.set_margin_end(10);
+            let aparece = gtk::Switch::builder().active(!cfg.escondida(&cat, r)).valign(gtk::Align::Center).build();
+            let nome = gtk::Label::new(Some(r));
+            nome.set_hexpand(true);
+            nome.set_xalign(0.0);
+            linha.append(&aparece);
+            linha.append(&nome);
+            if cat != "Todas" {
+                let botao = gtk::CheckButton::with_label("botão");
+                botao.set_active(match cfg.botoes.get(&cat) {
+                    Some(l) => l.contains(r),
+                    None => padrao_botoes.contains(&r),
+                });
+                let (u, m, categoria) = (ui.clone(), marcas.clone(), cat.clone());
+                botao.connect_toggled(move |_| {
+                    let escolhidas: Vec<String> = m.borrow().iter().filter(|(_, b)| b.is_active()).map(|(n, _)| n.clone()).collect();
+                    mudar(&u, |c| {
+                        c.acoes.botoes.insert(categoria.clone(), escolhidas);
+                    })
+                });
+                marcas.borrow_mut().push((r.clone(), botao.clone()));
+                linha.append(&botao);
+            }
+            let (u, categoria, rotulo) = (ui.clone(), cat.clone(), r.clone());
+            aparece.connect_active_notify(move |s| {
+                mudar(&u, |c| {
+                    let l = c.acoes.escondidas.entry(categoria.clone()).or_default();
+                    l.retain(|x| x != &rotulo);
+                    if !s.is_active() {
+                        l.push(rotulo.clone());
+                    }
+                })
+            });
+            caixa.append(&linha);
+        }
+        c.append(&caixa);
+    }
     c
 }
 

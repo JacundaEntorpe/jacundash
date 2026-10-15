@@ -36,6 +36,8 @@ pub struct Ui {
     pub configuracoes: RefCell<Option<gtk::Window>>,
     /// Resultados fixados no topo e escondidos.
     pub marcas: RefCell<Marcas>,
+    /// Ações que já apareceram, por categoria (a aba de configurações lista elas pra esconder).
+    pub acoes_vistas: RefCell<std::collections::BTreeMap<String, Vec<String>>>,
     tx: async_channel::Sender<Batch>,
     efeitos_tx: async_channel::Sender<Vec<Effect>>,
     uso_apps: Arc<Mutex<std::collections::HashMap<String, u32>>>,
@@ -143,6 +145,9 @@ impl Ui {
             cfg: cfg_compartilhada,
             configuracoes: RefCell::default(),
             marcas: RefCell::new(Marcas::carregar()),
+            acoes_vistas: RefCell::new(
+                std::fs::read_to_string(crate::config::pasta_estado().join("acoes-vistas.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default(),
+            ),
             tx,
             efeitos_tx,
             uso_apps,
@@ -251,6 +256,11 @@ impl Ui {
     pub fn esconder(&self) {
         engine::VISIVEL.store(false, std::sync::atomic::Ordering::Relaxed);
         self.window.set_visible(false);
+        // Guarda as ações vistas (pra aba de configurações) quando a janela fecha
+        if let Ok(json) = serde_json::to_string(&*self.acoes_vistas.borrow()) {
+            let _ = std::fs::create_dir_all(crate::config::pasta_estado());
+            let _ = std::fs::write(crate::config::pasta_estado().join("acoes-vistas.json"), json);
+        }
     }
 
     /// Refaz a busca sem limpar a lista nem perder a linha selecionada: cada provedor
@@ -322,6 +332,8 @@ impl Ui {
     /// Tira os escondidos, sobe os fixados e coloca "Fixar" e "Esconder" nas ações de cada item.
     fn com_marcas(&self, resultados: &[Option<Vec<Item>>]) -> Vec<Option<Vec<Item>>> {
         let m = self.marcas.borrow();
+        let acoes = self.cfg.read().unwrap().acoes.clone();
+        let mut vistas = self.acoes_vistas.borrow_mut();
         resultados
             .iter()
             .enumerate()
@@ -347,6 +359,15 @@ impl Ui {
                             let rotulo = if fixado { "Desafixar" } else { "Fixar no topo" };
                             it.actions.push(Action { label: rotulo.into(), icon: "pin".into(), effect: Effect::Internal { action: "fixar".into() } });
                             it.actions.push(Action { label: "Esconder este resultado".into(), icon: "view-hidden".into(), effect: Effect::Internal { action: "esconder".into() } });
+                            // Anota as ações da categoria e tira as que estão escondidas nas configurações
+                            let categoria = it.category.clone().unwrap_or(categoria_padrao.to_string());
+                            let lista = vistas.entry(categoria.clone()).or_default();
+                            for a in &it.actions {
+                                if !matches!(a.effect, Effect::Internal { .. }) && !lista.contains(&a.label) {
+                                    lista.push(a.label.clone());
+                                }
+                            }
+                            it.actions.retain(|a| !acoes.escondida(&categoria, &a.label));
                             Some(it)
                         })
                         .collect(),
@@ -532,7 +553,13 @@ impl Ui {
             botoes.add_css_class("botoes");
             botoes.set_visible(false);
             self.botoes.borrow_mut().push(Some(botoes.clone()));
-            for a in linha.item.actions.iter().filter(|a| !matches!(a.effect, Effect::Internal { .. })).take(3) {
+            // As escolhidas nas configurações (na ordem delas); sem escolha, as 3 primeiras
+            let escolhidas = self.cfg.read().unwrap().acoes.botoes.get(&linha.category).cloned();
+            let botoes_da_linha: Vec<&Action> = match &escolhidas {
+                Some(rotulos) => rotulos.iter().filter_map(|r| linha.item.actions.iter().find(|a| &a.label == r)).collect(),
+                None => linha.item.actions.iter().filter(|a| !matches!(a.effect, Effect::Internal { .. })).take(3).collect(),
+            };
+            for a in botoes_da_linha {
                 let b = gtk::Button::from_icon_name(if a.icon.is_empty() { "system-run" } else { &a.icon });
                 b.add_css_class("flat");
                 b.add_css_class("botao-acao");
@@ -793,6 +820,10 @@ fn icone(nome: &str, tamanho: i32) -> gtk::Image {
 /// Roda um comando solto (fora do jacundash), opcionalmente dentro de um terminal.
 fn rodar(cmd: &[String], terminal: bool, cwd: Option<&str>, segurar: bool, aba: bool, cfg: &Config) {
     use std::os::unix::process::CommandExt;
+    // Aba nova: cada terminal tem seu jeito (Konsole pelo D-Bus, WezTerm e kitty pelo cli...)
+    if terminal && aba && cmd.is_empty() && sistema::aba_nova(&cfg.busca.terminal, cwd.unwrap_or("~")) {
+        return;
+    }
     let argv = if terminal { sistema::no_terminal(&cfg.busca.terminal, cmd, cwd, segurar, aba) } else { cmd.to_vec() };
     let Some((prog, args)) = argv.split_first() else { return };
     let mut c = std::process::Command::new(prog);

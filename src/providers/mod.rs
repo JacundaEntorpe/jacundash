@@ -19,3 +19,5 @@ pub mod emoji;
 pub mod navegador;
 pub mod recentes;
 pub mod sistema;
+pub mod ajuda;
+pub mod historico;
