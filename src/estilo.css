@@ -1,0 +1,108 @@
+/* Tema padrão do jacundash. Pra mudar, crie ~/.config/jacundash/estilo.css: o que estiver lá
+   vale por cima disto (não precisa copiar tudo, só o que mudar). As cores ficam aqui em cima. */
+
+@define-color jd_fundo #19191e;
+@define-color jd_caixa #232328;
+@define-color jd_texto #dcdce1;
+@define-color jd_apagado #8c8c91;
+@define-color jd_destaque #e92f17;
+@define-color jd_selecionado #2e2e35;
+@define-color jd_linha #2a2a30;
+
+window.jacundash {
+    background: transparent;
+}
+
+.caixa {
+    background: @jd_fundo;
+    color: @jd_texto;
+    border: 1px solid @jd_destaque;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+entry.busca {
+    background: @jd_caixa;
+    color: @jd_texto;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    box-shadow: none;
+    min-height: 30px;
+    padding: 0 8px;
+    outline: none;
+}
+
+entry.busca:focus-within {
+    border-color: alpha(@jd_destaque, 0.6);
+}
+
+entry.busca image {
+    color: @jd_apagado;
+}
+
+scrolledwindow {
+    margin-top: 4px;
+}
+
+.lista {
+    background: transparent;
+}
+
+.lista row {
+    padding: 0;
+    border-radius: 6px;
+    background: transparent;
+}
+
+/* linha fina antes de cada categoria (menos a primeira) */
+.lista row.comeco-grupo:not(:first-child) {
+    border-top: 1px solid @jd_linha;
+    border-radius: 0 0 6px 6px;
+}
+
+.lista row:selected {
+    background: @jd_selecionado;
+    box-shadow: inset 3px 0 @jd_destaque;
+}
+
+.item {
+    padding: 4px 8px;
+    min-height: 26px;
+}
+
+.categoria {
+    color: @jd_apagado;
+    font-size: 9pt;
+}
+
+.titulo {
+    color: @jd_texto;
+}
+
+.subtitulo {
+    color: @jd_apagado;
+    font-size: 9pt;
+}
+
+.acoes {
+    margin: 0 8px 6px 140px;
+}
+
+.acao {
+    padding: 3px 8px;
+    border-radius: 5px;
+    color: @jd_apagado;
+}
+
+.acao-selecionada {
+    background: alpha(@jd_destaque, 0.25);
+    color: @jd_texto;
+}
+
+.rodape {
+    color: @jd_apagado;
+    font-size: 8pt;
+    padding: 4px 8px 0;
+}

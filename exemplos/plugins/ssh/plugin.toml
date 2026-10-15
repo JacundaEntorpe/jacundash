@@ -1,0 +1,6 @@
+# Plugin de exemplo: os servidores do ~/.ssh/config.
+# Pra instalar: copie esta pasta pra ~/.config/jacundash/plugins/ssh e rode jacundash --sair.
+nome = "SSH"          # categoria onde os resultados aparecem
+exec = "./ssh.py"     # relativo a esta pasta
+palavra = "ssh"       # "ssh vps" mostra só este plugin
+minimo = 2            # sem a palavra, só pergunta a partir de 2 letras
