@@ -31,7 +31,8 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 | `disc` | Janelas abertas (Enter vai pra janela; Shift+Enter: fechar, minimizar, maximizar, mandar pra próxima área de trabalho). `ja` lista todas |
 | `relatorio` (3+ letras) | Arquivos e pastas com a busca no nome, separados em Pastas, Imagens, Documentos... `ar texto` mostra só arquivos e procura no conteúdo também |
 | `poke`, `vs poke` | Repositórios git (e as pastas abertas no VS Code), com a branch. Enter abre no editor; Shift+Enter: terminal (janela ou aba nova), Claude Code, gerenciador de arquivos, remote no navegador, `git pull`, copiar o caminho |
-| `sprites`, `pa sprites` | Pastas comuns (sem git) das mesmas pastas, com a pasta de cima do lado |
+| `sprites`, `pa sprites` | Pastas comuns (sem git) das mesmas pastas, com a pasta de cima do lado. Com o `pa`, os repositórios entram também |
+| `img pokecroc`, `vid gravação` | Só imagens ou só vídeos. Sozinho (`img`, `vid`), os mais novos primeiro. No KDE pelo Baloo, nos outros pelo nome. Dá pra desligar em Configurações → Categorias |
 | `gs` | Repositórios com alteração, commit sem push ou atrás do remote; `git pull`/`git push` no Shift+Enter e "Buscar atualizações de todos" (git fetch) no fim |
 | `dk`, `ani-mal` | Containers Docker. Enter: logs (ou inicia, se estiver parado); Shift+Enter: shell, reiniciar, parar |
 | `sv`, `sv docker` | Serviços do systemd (sistema e usuário). `sv` sozinho mostra os favoritos e os que falharam. Enter: status; Shift+Enter: logs ao vivo, reiniciar, parar, iniciar |

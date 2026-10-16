@@ -139,6 +139,8 @@ fn main() -> glib::ExitCode {
             // As nossas pastas antes das do Baloo: na repetida, fica a que tem mais ações
             Arc::new(providers::repos::Pastas { varredura: varredura.clone(), cfg: cfg.clone() }),
             Arc::new(providers::arquivos::Arquivos),
+            Arc::new(providers::arquivos::IMAGENS),
+            Arc::new(providers::arquivos::VIDEOS),
             Arc::new(providers::web::Web::new(&web)),
         ];
         for p in providers::plugin::carregar() {

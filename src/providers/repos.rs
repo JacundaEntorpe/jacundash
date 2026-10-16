@@ -382,7 +382,16 @@ impl Provider for Pastas {
         let cfg = self.cfg.read().unwrap().repos.clone();
         let terminal = self.cfg.read().unwrap().busca.terminal.clone();
         let mut itens = Vec::new();
-        for caminho in self.varredura.pastas() {
+        let mut caminhos = self.varredura.pastas();
+        // No "pa" entram também as pastas que são repositório (sem o "pa" elas já aparecem em Repositórios)
+        if q.with_keyword {
+            for r in self.varredura.repos() {
+                if !caminhos.contains(&r.caminho) {
+                    caminhos.push(r.caminho);
+                }
+            }
+        }
+        for caminho in caminhos {
             let p = Path::new(&caminho);
             let nome = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let nota = matcher::score(&q.norm, &nome, "");
