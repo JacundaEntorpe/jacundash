@@ -74,11 +74,14 @@ abrir = ["http://localhost:3000"]     # links e arquivos
 
 ## Instalar
 
-No Arch (e derivados), pelo AUR:
+No Arch (e derivados), como pacote:
 
 ```bash
-yay -S jacundash-git    # ou paru -S jacundash-git
+git clone https://github.com/JacundaEntorpe/jacundash
+cd jacundash/aur && makepkg -si
 ```
+
+Pra atualizar: `git pull` na pasta e `makepkg -si` de novo. (Logo vai ter no AUR também: `yay -S jacundash-git`.)
 
 Depois é só abrir pelo menu de apps. Na primeira vez ele liga a tecla (no KDE) e prepara o resto na tua home. Pra usar uma versão nova logo depois de atualizar: `jacundash --sair && jacundash --fundo`.
 
