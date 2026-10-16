@@ -7,10 +7,9 @@ pkgdesc="Lançador rápido com resultados por categoria (igual o KRunner) e plug
 arch=('x86_64' 'aarch64')
 url="https://github.com/JacundaEntorpe/jacundash"
 license=('MIT')
-depends=('gtk4' 'glib2' 'pango' 'gdk-pixbuf2' 'graphene' 'gcc-libs' 'glibc')
+depends=('gtk4' 'gtk4-layer-shell' 'glib2' 'pango' 'gdk-pixbuf2' 'graphene' 'gcc-libs' 'glibc')
 makedepends=('cargo' 'git')
 optdepends=(
-  'gtk4-layer-shell: janela no topo da tela no Wayland (KDE, Hyprland, Sway...)'
   'konsole: comandos em aba nova do Konsole aberto'
   'libnotify: avisos na área de notificações'
   'wl-clipboard: copiar no Wayland fora do GTK'
