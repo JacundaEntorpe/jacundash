@@ -1,1 +1,5 @@
 /target
+aur/src/
+aur/pkg/
+aur/jacundash/
+aur/*.pkg.tar.*

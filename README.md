@@ -74,16 +74,26 @@ abrir = ["http://localhost:3000"]     # links e arquivos
 
 ## Instalar
 
-Precisa de Rust, `gtk4` e, pra ficar no topo da tela no Wayland, `gtk4-layer-shell` (no Arch: `sudo pacman -S rust gtk4 gtk4-layer-shell`).
+No Arch (e derivados), pelo AUR:
+
+```bash
+yay -S jacundash-git    # ou paru -S jacundash-git
+```
+
+Depois é só abrir pelo menu de apps. Na primeira vez ele liga a tecla (no KDE) e prepara o resto na tua home. Pra usar uma versão nova logo depois de atualizar: `jacundash --sair && jacundash --fundo`.
+
+Em qualquer distro, pelo código:
+
+Precisa de Rust, `gtk4` e, pra ficar no topo da tela no Wayland, `gtk4-layer-shell` (no Arch: `sudo pacman -S rust gtk4 gtk4-layer-shell`). Se faltar alguma coisa, o instalador diz o comando que instala tudo de uma vez na tua distro (pacman, apt, dnf, zypper, xbps, apk).
 
 ```bash
 git clone <este repositório> ~/Projetos/jacundash
 cd ~/Projetos/jacundash && ./instalar.sh
 ```
 
-O instalador compila, coloca o `jacundash` em `~/.local/bin`, põe no menu de apps, deixa ele iniciar escondido junto com a sessão e liga a tecla de atalho: a que tu digitar, ou (só Enter) a primeira livre entre Alt+Space, Meta+Space, Ctrl+Space... Nunca tira a tecla de outro atalho, como o KRunner. Pra atualizar: `git pull` e `./instalar.sh` de novo. Pra tirar: `./desinstalar.sh` (`--tudo` apaga a config também).
+O instalador compila, coloca o `jacundash` em `~/.local/bin`, põe no menu de apps, deixa ele iniciar escondido junto com a sessão e liga a tecla de atalho: a que tu digitar, ou (só Enter) a primeira livre entre Alt+Space, Meta+Space, Ctrl+Space... Se a tecla que tu digitar for de outro atalho (Alt+Space é do KRunner, por exemplo), ele pergunta se pode passar pro jacundash; o outro perde só essa tecla, e `jacundash --atalho --desfazer` devolve. Sem perguntar: `./instalar.sh --atalho Alt+Space --assumir`. No automático nunca tira tecla de ninguém. Pra atualizar: `git pull` e `./instalar.sh` de novo. Pra tirar: `./desinstalar.sh` (`--tudo` apaga a config também).
 
-Sem o `gtk4-layer-shell` (ou no X11) ele compila sem isso sozinho, e abre como uma janela comum, sem borda.
+Sem o `gtk4-layer-shell` (ou no X11) ele abre como uma janela comum, sem borda. O `gtk4-layer-shell` é carregado na hora de abrir, então dá pra instalar depois sem recompilar: vale no próximo início da sessão (ou na hora com `jacundash --sair && jacundash --fundo`).
 
 No Hyprland e no Sway, coloque na config `exec-once = jacundash --fundo` (Hyprland) ou `exec jacundash --fundo` (Sway), e a tecla com `jacundash --atalho Meta+Space`, que mostra a linha certa pra colar.
 
@@ -93,6 +103,8 @@ No Hyprland e no Sway, coloque na config `exec-once = jacundash --fundo` (Hyprla
 | `jacundash "texto"` | abre já buscando o texto |
 | `jacundash --config` | abre as configurações |
 | `jacundash --atalho Meta+Space` | liga a tecla (KDE: na hora; Hyprland/Sway: mostra a linha da config). Sem a tecla, mostra a atual |
+| `jacundash --atalho Alt+Space --assumir` | liga mesmo se a tecla for de outro atalho (mostra o que ele tinha) |
+| `jacundash --atalho --desfazer` | devolve a tecla pra quem tinha antes do `--assumir` |
 | `jacundash --enter` | aperta Enter na janela aberta (pra scripts: `jacundash "ia liberar" && sleep 1 && jacundash --enter`) |
 | `jacundash --tecla Down` | aperta uma tecla na janela aberta (`Tab`, `shift+Return`, `Escape`...), pra scripts |
 | `jacundash --fundo` | só deixa rodando em segundo plano |

@@ -5,6 +5,7 @@
 //! estiver aberto. Por isso abre na hora.
 
 mod atalho;
+mod camada;
 mod config;
 mod config_ui;
 mod engine;
@@ -15,6 +16,7 @@ mod marcas;
 mod markdown;
 mod matcher;
 mod model;
+mod preparar;
 mod previa;
 mod providers;
 mod sistema;
@@ -28,7 +30,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-const APP_ID: &str = "io.github.JacundaEntorpe.Jacundash";
+pub const APP_ID: &str = "io.github.JacundaEntorpe.Jacundash";
 
 fn main() -> glib::ExitCode {
     let args: Vec<String> = std::env::args().collect();
@@ -42,6 +44,7 @@ fn main() -> glib::ExitCode {
              jacundash --tecla Down   aperta uma tecla na janela aberta (Down, Tab, shift+Return, Escape...)\n\
              jacundash --atalho Meta+Space   liga a tecla (no KDE vale na hora); sem a tecla, mostra a atual\n\
              jacundash --atalho Alt+Space --assumir   tira a tecla de quem estiver usando e liga\n\
+             jacundash --atalho --desfazer   devolve a tecla pra quem tinha antes do --assumir\n\
              jacundash --fundo     só deixa rodando em segundo plano, sem abrir (pra iniciar com a sessão)\n\
              jacundash --sair      encerra o que está em segundo plano\n\n\
              Config: ~/.config/jacundash/config.toml  ·  tema: ~/.config/jacundash/estilo.css\n\
@@ -63,6 +66,16 @@ fn main() -> glib::ExitCode {
                     glib::ExitCode::FAILURE
                 }
             },
+            Some(d) if d == "--desfazer" => match atalho::desfazer() {
+                Ok(msg) => {
+                    println!("{msg}");
+                    glib::ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    glib::ExitCode::FAILURE
+                }
+            },
             Some(tecla) => match atalho::ligar(tecla, args.iter().any(|a| a == "--assumir")) {
                 Ok(msg) => {
                     println!("{msg}");
@@ -76,6 +89,9 @@ fn main() -> glib::ExitCode {
             },
         };
     }
+
+    // Antes do GTK: reabre com o gtk4-layer-shell, se ele estiver instalado
+    camada::preparar();
 
     let app = gtk::Application::builder()
         .application_id(APP_ID)
@@ -131,6 +147,8 @@ fn main() -> glib::ExitCode {
         let palavras = provedores.iter().map(|p| (p.keyword().to_string(), p.category().to_string())).collect();
         provedores.push(Arc::new(providers::ajuda::Ajuda::new(palavras)));
         *u.borrow_mut() = Some(ui::Ui::new(app, Engine { providers: provedores }, cfg, uso, lista_recentes));
+        // Instalado por pacote: na primeira vez, faz na home o que o instalar.sh faria
+        preparar::primeira_vez();
         // Continua rodando com a janela escondida
         std::mem::forget(app.hold());
     });

@@ -106,13 +106,72 @@ fn donos(c: i32) -> Result<Vec<(Vec<String>, String)>, String> {
         .collect())
 }
 
-/// Tira a tecla de outro atalho, deixando as outras teclas dele (o KRunner continua no Alt+F2).
-/// Devolve as teclas que sobraram pra ele.
-fn tirar_de(id: &[String], c: i32) -> Result<Vec<String>, String> {
+/// Teclas de um atalho no KDE, cada uma como o KDE guarda ([tecla, 0, 0, 0]).
+fn teclas_de(id: &[String]) -> Result<Vec<Vec<i32>>, String> {
     let r = kglobalaccel("shortcutKeys", (id.to_vec(),).to_variant(), "(a(ai))")?;
-    let resto: Vec<(Vec<i32>,)> = r.child_value(0).iter().filter_map(|t| t.child_value(0).get::<Vec<i32>>()).filter(|v| v.first() != Some(&c)).map(|v| (v,)).collect();
-    kglobalaccel("setForeignShortcutKeys", (id.to_vec(), resto.clone()).to_variant(), "()")?;
-    Ok(resto.iter().filter_map(|(v,)| v.first().copied().filter(|x| *x != 0)).map(nome).collect())
+    Ok(r.child_value(0).iter().filter_map(|t| t.child_value(0).get::<Vec<i32>>()).collect())
+}
+
+fn nomes_teclas(teclas: &[Vec<i32>]) -> Vec<String> {
+    teclas.iter().filter_map(|v| v.first().copied().filter(|x| *x != 0)).map(nome).collect()
+}
+
+fn pra_variant(teclas: &[Vec<i32>]) -> Vec<(Vec<i32>,)> {
+    teclas.iter().map(|v| (v.clone(),)).collect()
+}
+
+/// Tira a tecla de outro atalho, deixando as outras teclas dele (o KRunner continua no Alt+F2).
+/// Devolve as teclas que ele tinha antes.
+fn tirar_de(id: &[String], c: i32) -> Result<Vec<Vec<i32>>, String> {
+    let antes = teclas_de(id)?;
+    let resto: Vec<Vec<i32>> = antes.iter().filter(|v| v.first() != Some(&c)).cloned().collect();
+    kglobalaccel("setForeignShortcutKeys", (id.to_vec(), pra_variant(&resto)).to_variant(), "()")?;
+    Ok(antes)
+}
+
+/// O que a tecla fazia antes do jacundash assumir, pra dar pra desfazer.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Anterior {
+    id: Vec<String>,
+    nome: String,
+    teclas: Vec<Vec<i32>>,
+}
+
+fn arquivo_anterior() -> std::path::PathBuf {
+    crate::config::pasta_config().join("atalho-anterior.json")
+}
+
+fn ler_anteriores() -> Vec<Anterior> {
+    std::fs::read_to_string(arquivo_anterior()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+/// Guarda junto com os de antes; de quem já estava guardado fica o original (o de antes de tudo).
+fn guardar_anteriores(novos: Vec<Anterior>) {
+    let mut todos = ler_anteriores();
+    for a in novos {
+        if !todos.iter().any(|t| t.id == a.id) {
+            todos.push(a);
+        }
+    }
+    let _ = std::fs::create_dir_all(crate::config::pasta_config());
+    let _ = std::fs::write(arquivo_anterior(), serde_json::to_string_pretty(&todos).unwrap_or_default());
+}
+
+/// Devolve as teclas que o jacundash tomou pros donos de antes. O jacundash fica sem tecla.
+pub fn desfazer() -> Result<String, String> {
+    let anteriores = ler_anteriores();
+    if anteriores.is_empty() {
+        return Err("O jacundash não tirou a tecla de ninguém, nada pra desfazer.".into());
+    }
+    // Primeiro solta a tecla, senão o KDE recusa devolver
+    kglobalaccel("setShortcutKeys", (acao(), Vec::<(Vec<i32>,)>::new(), 2u32 | 4).to_variant(), "(a(ai))")?;
+    let mut voltou = Vec::new();
+    for a in &anteriores {
+        kglobalaccel("setForeignShortcutKeys", (a.id.clone(), pra_variant(&a.teclas)).to_variant(), "()")?;
+        voltou.push(format!("{} com {}", a.nome, nomes_teclas(&a.teclas).join(", ")));
+    }
+    let _ = std::fs::remove_file(arquivo_anterior());
+    Ok(format!("Voltou: {}. O jacundash ficou sem tecla; ligue outra com: jacundash --atalho <tecla>", voltou.join("; ")))
 }
 
 /// Erro de tecla ocupada (o instalador usa pra perguntar se pode assumir).
@@ -134,14 +193,18 @@ pub fn ligar(tecla: &str, assumir: bool) -> Result<String, String> {
     // O KDE recusa calado uma tecla que já é de outro atalho (Alt+Espaço é do KRunner, por exemplo)
     let outros = donos(c)?;
     let mut avisos = Vec::new();
+    let mut anteriores = Vec::new();
     if !outros.is_empty() {
         let nomes: Vec<&str> = outros.iter().map(|(_, n)| n.as_str()).collect();
         if !assumir {
             return Err(format!("{} {OCUPADA} {}. Pra passar pro jacundash: jacundash --atalho {} --assumir", nome(c), nomes.join(", "), nome(c)));
         }
         for (id, n) in &outros {
-            let resto = tirar_de(id, c)?;
-            avisos.push(if resto.is_empty() { format!("{n} ficou sem tecla") } else { format!("{n} continua com {}", resto.join(", ")) });
+            let antes = tirar_de(id, c)?;
+            let resto: Vec<String> = nomes_teclas(&antes).into_iter().filter(|t| *t != nome(c)).collect();
+            let tinha = nomes_teclas(&antes).join(", ");
+            avisos.push(if resto.is_empty() { format!("{n} tinha {tinha} e ficou sem tecla") } else { format!("{n} tinha {tinha}, continua com {}", resto.join(", ")) });
+            anteriores.push(Anterior { id: id.clone(), nome: n.clone(), teclas: antes });
         }
     }
     kglobalaccel("doRegister", (acao(),).to_variant(), "()")?;
@@ -153,7 +216,8 @@ pub fn ligar(tecla: &str, assumir: bool) -> Result<String, String> {
     }
     let mut msg = format!("Jacundash ligado a {}.", nome(c));
     if !avisos.is_empty() {
-        msg += &format!(" ({})", avisos.join("; "));
+        msg += &format!(" ({}). Pra desfazer: jacundash --atalho --desfazer", avisos.join("; "));
+        guardar_anteriores(anteriores);
     }
     Ok(msg)
 }

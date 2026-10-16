@@ -1058,27 +1058,10 @@ fn carregar_css() -> (gtk::CssProvider, gtk::CssProvider) {
 /// No Wayland com layer-shell (KDE, Hyprland, Sway...): colada no topo, por cima de tudo.
 /// Sem isso (X11, GNOME): uma janela comum sem borda.
 fn posicionar(window: &gtk::ApplicationWindow, cfg: &Config) {
-    #[cfg(feature = "layer-shell")]
-    {
-        use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
-        if gtk4_layer_shell::is_supported() {
-            window.init_layer_shell();
-            window.set_namespace(Some("jacundash"));
-            window.set_layer(Layer::Overlay);
-            window.set_anchor(Edge::Top, true);
-            window.set_keyboard_mode(KeyboardMode::OnDemand);
-        }
-    }
+    crate::camada::iniciar(window);
     posicionar_topo(window, cfg);
 }
 
 fn posicionar_topo(window: &gtk::ApplicationWindow, cfg: &Config) {
-    #[cfg(feature = "layer-shell")]
-    {
-        use gtk4_layer_shell::{Edge, LayerShell};
-        if gtk4_layer_shell::is_supported() {
-            window.set_margin(Edge::Top, cfg.aparencia.topo);
-        }
-    }
-    let _ = (window, cfg);
+    crate::camada::margem_topo(window, cfg.aparencia.topo);
 }

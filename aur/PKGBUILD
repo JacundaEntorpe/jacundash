@@ -1,0 +1,87 @@
+# Maintainer: JacundaEntorpe <lagostinhadias12 at gmail dot com>
+pkgname=jacundash-git
+_pkgname=jacundash
+pkgver=r0
+pkgrel=1
+pkgdesc="Lançador rápido com resultados por categoria (igual o KRunner) e plugins em qualquer linguagem"
+arch=('x86_64' 'aarch64')
+url="https://github.com/JacundaEntorpe/jacundash"
+license=('MIT')
+depends=('gtk4' 'glib2' 'pango' 'gdk-pixbuf2' 'graphene' 'gcc-libs' 'glibc')
+makedepends=('cargo' 'git')
+optdepends=(
+  'gtk4-layer-shell: janela no topo da tela no Wayland (KDE, Hyprland, Sway...)'
+  'konsole: comandos em aba nova do Konsole aberto'
+  'libnotify: avisos na área de notificações'
+  'wl-clipboard: copiar no Wayland fora do GTK'
+  'wmctrl: lista de janelas abertas no X11'
+  'plocate: busca de arquivos fora do KDE'
+  'fd: busca de arquivos fora do KDE'
+)
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+install=jacundash.install
+source=("git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
+
+check() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo test --frozen --release
+}
+
+package() {
+  cd "$_pkgname"
+  install -Dm755 target/release/jacundash "$pkgdir/usr/bin/jacundash"
+
+  # Menu de apps (o KDE também abre por ele quando a tecla é apertada)
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/jacundash.desktop" <<FIM
+[Desktop Entry]
+Type=Application
+Name=Jacundash
+Comment=Lançador com categorias e plugins
+Exec=jacundash
+Icon=system-search
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+X-KDE-StartupNotify=false
+FIM
+
+  # Inicia escondido com a sessão, pra abrir na hora
+  install -Dm644 /dev/stdin "$pkgdir/etc/xdg/autostart/jacundash.desktop" <<FIM
+[Desktop Entry]
+Type=Application
+Name=Jacundash
+Exec=jacundash --fundo
+Icon=system-search
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+FIM
+
+  # Na primeira vez, o jacundash copia isso pra home (perfil do Konsole e atalhos de busca)
+  install -Dm755 konsole/aba.sh "$pkgdir/usr/share/jacundash/aba.sh"
+  install -Dm644 -t "$pkgdir/usr/share/jacundash/atalhos-web" atalhos-web/*.desktop
+
+  install -Dm644 -t "$pkgdir/usr/share/doc/$_pkgname" README.md PLUGINS.md
+  cp -r exemplos "$pkgdir/usr/share/doc/$_pkgname/"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

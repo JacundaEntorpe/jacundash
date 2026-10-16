@@ -1,0 +1,10 @@
+post_install() {
+  echo "Abra o jacundash pelo menu de apps (ou saia e entre de novo na sessão)."
+  echo "No KDE, na primeira vez ele liga a primeira tecla livre: Alt+Space, Meta+Space, Ctrl+Space..."
+  echo "Pra trocar: jacundash --atalho Meta+Space (ou Ctrl+, nas configurações)."
+  echo "No Hyprland/Sway: exec-once = jacundash --fundo, e a tecla com: jacundash --atalho Meta+Space"
+}
+
+post_upgrade() {
+  echo "Pra usar a versão nova agora: jacundash --sair && jacundash --fundo"
+}
