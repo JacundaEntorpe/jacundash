@@ -262,7 +262,7 @@ struct Receita {
 
 const RECEITA: &str = ".jacundash.toml";
 
-const MODELO_RECEITA: &str = "# Receita deste projeto pro jacundash: \"vs <projeto>\" → Shift+Enter → \"Começar a trabalhar\"\n\
+const MODELO_RECEITA: &str = "# Receita deste projeto pro jacundash: \"vs <projeto>\" → Ctrl+Enter → \"Começar a trabalhar\"\n\
 # abre tudo isto de uma vez. Apague o que não usar.\n\n\
 # Abre a pasta no editor (o da config do jacundash)\n\
 editor = true\n\n\

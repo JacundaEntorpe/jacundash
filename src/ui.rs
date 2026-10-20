@@ -63,7 +63,7 @@ struct Estado {
     selecionado: usize,
     modo_palavra: bool,
     desenho_marcado: bool,
-    /// Ações da linha selecionada abertas (Shift+Enter): (linha, índice da ação)
+    /// Ações da linha selecionada abertas (Ctrl+Enter): (linha, índice da ação)
     acoes: Option<(usize, usize)>,
     /// Linha com o mouse em cima.
     hover: Option<usize>,
@@ -108,7 +108,7 @@ impl Ui {
             .build();
         scroll.set_visible(false);
 
-        let rodape = gtk::Label::new(Some("Enter abre  ·  Shift+Enter ações  ·  Esc fecha"));
+        let rodape = gtk::Label::new(Some("Enter abre  ·  Ctrl+Enter ações  ·  Esc fecha"));
         rodape.add_css_class("rodape");
         rodape.set_xalign(0.0);
         rodape.set_visible(false);
@@ -627,7 +627,7 @@ impl Ui {
         }
     }
 
-    /// Abre as ações de uma linha (Shift+Enter, clique direito ou o botão "...").
+    /// Abre as ações de uma linha (Ctrl+Enter, clique direito ou o botão "...").
     fn abrir_acoes(&self, i: usize) {
         {
             let mut e = self.estado.borrow_mut();
@@ -712,7 +712,7 @@ impl Ui {
             let mais = gtk::Button::from_icon_name("view-more-symbolic");
             mais.add_css_class("flat");
             mais.add_css_class("botao-acao");
-            mais.set_tooltip_text(Some("Todas as ações (Shift+Enter)"));
+            mais.set_tooltip_text(Some("Todas as ações (Ctrl+Enter)"));
             mais.set_focusable(false);
             let u = eu.clone();
             mais.connect_clicked(move |_| u.abrir_acoes(indice));
@@ -720,7 +720,7 @@ impl Ui {
             caixa.append(&botoes);
         }
 
-        // Shift+Enter abre as ações dessa linha embaixo dela
+        // Ctrl+Enter abre as ações dessa linha embaixo dela
         let fora = gtk::Box::new(gtk::Orientation::Vertical, 0);
         fora.append(&caixa);
         if let Some(sel) = acao_aberta {
@@ -786,14 +786,14 @@ impl Ui {
     }
 
     fn tecla(self: &Rc<Self>, tecla: gdk::Key, mods: gdk::ModifierType) -> glib::Propagation {
-        let shift = mods.contains(gdk::ModifierType::SHIFT_MASK);
+        let ctrl = mods.contains(gdk::ModifierType::CONTROL_MASK);
         // Backspace com o campo vazio tira a etiqueta da palavra-chave
         if tecla == gdk::Key::BackSpace && self.entry.text().is_empty() && self.palavra_ativa.borrow().is_some() {
             self.trocar_etiqueta(None);
             self.buscar();
             return glib::Propagation::Stop;
         }
-        if mods.contains(gdk::ModifierType::CONTROL_MASK) && tecla == gdk::Key::comma {
+        if ctrl && tecla == gdk::Key::comma {
             self.esconder();
             crate::config_ui::abrir(self);
             return glib::Propagation::Stop;
@@ -813,7 +813,7 @@ impl Ui {
             gdk::Key::ISO_Left_Tab => self.pular_categoria(false),
             gdk::Key::Page_Down => self.mover(5),
             gdk::Key::Page_Up => self.mover(-5),
-            gdk::Key::Return | gdk::Key::KP_Enter => self.ativar(shift),
+            gdk::Key::Return | gdk::Key::KP_Enter => self.ativar(ctrl),
             _ => return glib::Propagation::Proceed,
         }
         glib::Propagation::Stop
@@ -837,7 +837,7 @@ impl Ui {
         self.selecionar(i);
     }
 
-    /// jacundash --tecla shift+Return: aperta uma tecla na janela aberta (pra scripts e testes).
+    /// jacundash --tecla ctrl+Return: aperta uma tecla na janela aberta (pra scripts e testes).
     pub fn simular_tecla(self: &Rc<Self>, nome: &str) {
         if !self.window.is_visible() {
             return;
@@ -868,7 +868,7 @@ impl Ui {
         }
     }
 
-    /// Enter: ação padrão. Shift+Enter: abre (ou escolhe) as ações da linha.
+    /// Enter: ação padrão. Ctrl+Enter: abre (ou escolhe) as ações da linha.
     fn ativar(self: &Rc<Self>, mais: bool) {
         let (efeito, provedor) = {
             let mut e = self.estado.borrow_mut();

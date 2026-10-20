@@ -303,7 +303,7 @@ const ACOES_CONHECIDAS: &[(&str, &[&str])] = &[
 fn acoes(ui: &Rc<Ui>) -> gtk::Box {
     let c = coluna();
     c.append(&explicacao(
-        "Desligue o que você não usa: some do Shift+Enter e dos botões. Marque \"botão\" nas que devem aparecer \
+        "Desligue o que você não usa: some do Ctrl+Enter e dos botões. Marque \"botão\" nas que devem aparecer \
          como botão na linha (com o mouse em cima ou na linha selecionada). Sem nada marcado, os botões são as 3 primeiras. \
          \"Todas\" vale pra todas as categorias. Ações de plugins e dos arquivos aparecem aqui depois de aparecerem num resultado.",
     ));
@@ -462,7 +462,7 @@ fn categorias(ui: &Rc<Ui>) -> gtk::Box {
 
     c.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     c.append(&titulo("Fixados e escondidos"));
-    c.append(&explicacao("No jacundash, Shift+Enter num resultado tem \"Fixar no topo\" e \"Esconder este resultado\". Pra desfazer, é aqui."));
+    c.append(&explicacao("No jacundash, Ctrl+Enter num resultado tem \"Fixar no topo\" e \"Esconder este resultado\". Pra desfazer, é aqui."));
     let marcas = gtk::ListBox::new();
     marcas.set_selection_mode(gtk::SelectionMode::None);
     marcas.add_css_class("boxed-list");

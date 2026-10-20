@@ -32,7 +32,7 @@ pub struct Texto {
     pub texto: String,
 }
 
-/// Quais ações (Shift+Enter e botões da linha) aparecem, por categoria.
+/// Quais ações (Ctrl+Enter e botões da linha) aparecem, por categoria.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Acoes {

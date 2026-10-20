@@ -41,7 +41,7 @@ fn main() -> glib::ExitCode {
              jacundash \"texto\"     abre já buscando o texto\n\
              jacundash --config    abre as configurações (--config acoes: já na página Ações)\n\
              jacundash --enter     aperta Enter na janela aberta (pra scripts)\n\
-             jacundash --tecla Down   aperta uma tecla na janela aberta (Down, Tab, shift+Return, Escape...)\n\
+             jacundash --tecla Down   aperta uma tecla na janela aberta (Down, Tab, ctrl+Return, Escape...)\n\
              jacundash --atalho Meta+Space   liga a tecla (no KDE vale na hora); sem a tecla, mostra a atual\n\
              jacundash --atalho Alt+Space --assumir   tira a tecla de quem estiver usando e liga\n\
              jacundash --atalho --desfazer   devolve a tecla pra quem tinha antes do --assumir\n\

@@ -54,7 +54,7 @@ Resposta:
 | `icon` | nome de ícone do tema (`folder`, `network-server`), caminho de imagem ou GIcon |
 | `score` | de 0 a 1, quanto bate com a busca. Ordena dentro da categoria, e a categoria inteira sobe se tiver o melhor resultado. Use 1.0 pra "é exatamente isso" e uns 0.5 pra "talvez" |
 | `effect` | o que o Enter faz (obrigatório) |
-| `actions` | as opções do Shift+Enter, cada uma com `label`, `icon` e `effect` |
+| `actions` | as opções do Ctrl+Enter, cada uma com `label`, `icon` e `effect` |
 
 ### Efeitos
 

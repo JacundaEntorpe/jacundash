@@ -1,6 +1,6 @@
 //! "timer 10m chá", "timer 1h30 pizza", "timer 25" (minutos), "lembrete 18:30 reunião".
 //! Quando acaba: notificação urgente e o som de alarme do sistema. "timer" sozinho lista os
-//! ativos (Shift+Enter cancela). Ficam salvos: sobrevivem ao jacundash reiniciar.
+//! ativos (Ctrl+Enter cancela). Ficam salvos: sobrevivem ao jacundash reiniciar.
 
 use crate::config::pasta_estado;
 use crate::engine::{self, Provider, Query};
@@ -157,7 +157,7 @@ impl Provider for Timers {
                 .into_iter()
                 .map(|t| {
                     Item::new(format!("{}  —  faltam {}", if t.texto.is_empty() { "Timer" } else { &t.texto }, falta(t.fim.saturating_sub(agora))), Effect::None)
-                        .subtitle(format!("toca às {}  ·  Shift+Enter cancela", hora_de(t.fim)))
+                        .subtitle(format!("toca às {}  ·  Ctrl+Enter cancela", hora_de(t.fim)))
                         .icon("chronometer")
                         .score(1.0)
                         .action("Cancelar", "edit-delete", Effect::Callback { data: format!("cancelar:{}", t.id) })

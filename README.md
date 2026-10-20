@@ -23,25 +23,25 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 | `kat` | Apps instalados (os mesmos do menu do desktop). Os que você mais abre sobem |
 | `2^10*3`, `15% de 80`, `sqrt(2)`, `=1/3` | Calculadora. Enter copia o resultado |
 | `10 usd em brl`, `5 km em milhas`, `100 f em c`, `2 gb em mb` | Conversor de moedas (cotação do dia) e unidades: comprimento, peso, dados, tempo, volume, velocidade, área, temperatura. Enter copia |
-| `>htop`, `>git pu` | Roda o comando no terminal (que fica aberto no fim); embaixo, os comandos parecidos que você já rodou (pelo [Atuin](https://atuin.sh) se tiver, senão pelo histórico do bash, zsh ou fish). Shift+Enter: copiar ou rodar em segundo plano |
+| `>htop`, `>git pu` | Roda o comando no terminal (que fica aberto no fim); embaixo, os comandos parecidos que você já rodou (pelo [Atuin](https://atuin.sh) se tiver, senão pelo histórico do bash, zsh ou fish). Ctrl+Enter: copiar ou rodar em segundo plano |
 | `:fogo`, `emoji fogo` | Emojis pelo nome em português. Enter copia |
 | `cb`, `cb senha` | O que você copiou antes (Klipper no KDE, cliphist no Hyprland/Sway). Enter copia de novo |
 | `desligar`, `bloquear`... | Comandos do sistema: bloquear, suspender, hibernar, reiniciar, desligar, sair. Reiniciar, desligar e sair pedem confirmação no KDE. **Desligado de fábrica** (Configurações → Extras) |
 | `github` | Abas abertas e histórico do navegador (KDE, com a extensão Plasma Integration). Dá pra desligar em Configurações → Extras |
-| `disc` | Janelas abertas (Enter vai pra janela; Shift+Enter: fechar, minimizar, maximizar, mandar pra próxima área de trabalho). `ja` lista todas |
+| `disc` | Janelas abertas (Enter vai pra janela; Ctrl+Enter: fechar, minimizar, maximizar, mandar pra próxima área de trabalho). `ja` lista todas |
 | `relatorio` (3+ letras) | Arquivos e pastas com a busca no nome, separados em Pastas, Imagens, Documentos... `ar texto` mostra só arquivos e procura no conteúdo também |
-| `poke`, `vs poke` | Repositórios git (e as pastas abertas no VS Code), com a branch. Enter abre no editor; Shift+Enter: terminal (janela ou aba nova), Claude Code, gerenciador de arquivos, remote no navegador, `git pull`, copiar o caminho |
+| `poke`, `vs poke` | Repositórios git (e as pastas abertas no VS Code), com a branch. Enter abre no editor; Ctrl+Enter: terminal (janela ou aba nova), Claude Code, gerenciador de arquivos, remote no navegador, `git pull`, copiar o caminho |
 | `sprites`, `pa sprites` | Pastas comuns (sem git) das mesmas pastas, com a pasta de cima do lado. Com o `pa`, os repositórios entram também |
 | `img pokecroc`, `vid gravação` | Só imagens ou só vídeos. Sozinho (`img`, `vid`), os mais novos primeiro. No KDE pelo Baloo, nos outros pelo nome. Dá pra desligar em Configurações → Categorias |
-| `gs` | Repositórios com alteração, commit sem push ou atrás do remote; `git pull`/`git push` no Shift+Enter e "Buscar atualizações de todos" (git fetch) no fim |
-| `dk`, `ani-mal` | Containers Docker. Enter: logs (ou inicia, se estiver parado); Shift+Enter: shell, reiniciar, parar |
-| `sv`, `sv docker` | Serviços do systemd (sistema e usuário). `sv` sozinho mostra os favoritos e os que falharam. Enter: status; Shift+Enter: logs ao vivo, reiniciar, parar, iniciar |
-| `ts`, `vps` | Aparelhos do Tailscale, online primeiro. Enter copia o IP; Shift+Enter: SSH, copiar o nome, navegador, ping |
+| `gs` | Repositórios com alteração, commit sem push ou atrás do remote; `git pull`/`git push` no Ctrl+Enter e "Buscar atualizações de todos" (git fetch) no fim |
+| `dk`, `ani-mal` | Containers Docker. Enter: logs (ou inicia, se estiver parado); Ctrl+Enter: shell, reiniciar, parar |
+| `sv`, `sv docker` | Serviços do systemd (sistema e usuário). `sv` sozinho mostra os favoritos e os que falharam. Enter: status; Ctrl+Enter: logs ao vivo, reiniciar, parar, iniciar |
+| `ts`, `vps` | Aparelhos do Tailscale, online primeiro. Enter copia o IP; Ctrl+Enter: SSH, copiar o nome, navegador, ping |
 | `ia qual comando lista portas abertas?` | Pergunta pra IA local (Ollama). Enter manda e a resposta aparece ali mesmo, enquanto o modelo escreve; quando termina, já vai pra área de transferência. `ia` sozinho mostra quanto de memória ela ocupa e deixa liberar (bom antes de jogar) |
-| `hm organiza meus Downloads` | Manda a tarefa pro Hermes (o agente que mexe no PC). Enter abre no terminal pra acompanhar e aprovar; Shift+Enter roda em segundo plano, com a resposta numa notificação |
+| `hm organiza meus Downloads` | Manda a tarefa pro Hermes (o agente que mexe no PC). Enter abre no terminal pra acompanhar e aprovar; Ctrl+Enter roda em segundo plano, com a resposta numa notificação |
 | `traduz bom dia`, `explica tar -xzvf` | A IA local traduz (pro português, ou pro inglês se já estiver em português) ou explica o comando parte por parte |
-| `kill firefox` | Encerra o programa (todos os processos com esse nome, só os seus). Shift+Enter força (kill -9). `kill` sozinho lista os que mais gastam memória |
-| `timer 10m chá`, `timer 1h30`, `lembrete 18:30 reunião` | Timer e lembrete: notificação e o som de alarme quando acaba. `timer` sozinho lista os ativos (Shift+Enter cancela). Sobrevivem ao jacundash reiniciar |
+| `kill firefox` | Encerra o programa (todos os processos com esse nome, só os seus). Ctrl+Enter força (kill -9). `kill` sozinho lista os que mais gastam memória |
+| `timer 10m chá`, `timer 1h30`, `lembrete 18:30 reunião` | Timer e lembrete: notificação e o som de alarme quando acaba. `timer` sozinho lista os ativos (Ctrl+Enter cancela). Sobrevivem ao jacundash reiniciar |
 | `email`, `tx` | Textos prontos (Configurações → Textos prontos): o nome acha, o Enter copia |
 | `config` | Configurações do Jacundash (ou **Ctrl+,**) |
 | `gh:react`, `yt lofi`, `protondb elden ring` | Atalhos de busca da web (os do KDE e os seus) |
@@ -50,7 +50,7 @@ Fica rodando escondido com a janela pronta, então abre na hora. A busca roda a 
 
 Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notificação quando terminam.
 
-**Teclas:** setas ou Tab andam, Enter abre, **Shift+Enter** mostra as outras ações do item, Esc fecha (ou fecha as ações). Clicar fora ou trocar de janela também fecha.
+**Teclas:** setas ou Tab andam, Enter abre, **Ctrl+Enter** mostra as outras ações do item, Esc fecha (ou fecha as ações). Clicar fora ou trocar de janela também fecha.
 
 **Mouse:** passando o mouse numa linha (ou na selecionada) aparecem botões com as ações principais e um "⋮" com todas; clique direito também abre as ações.
 
@@ -58,7 +58,7 @@ Reiniciar, parar, `git pull` e afins rodam em segundo plano e avisam numa notifi
 
 **Recentes:** com a busca vazia, o que você abriu por último. **Desligado de fábrica** (Configurações → Extras).
 
-**Receita de projeto:** um `.jacundash.toml` na raiz do repositório diz o que abrir pra trabalhar nele; aí `vs projeto` → Shift+Enter → **Começar a trabalhar** abre tudo de uma vez. Sem receita, a mesma lista tem "Criar uma receita", que gera o arquivo comentado:
+**Receita de projeto:** um `.jacundash.toml` na raiz do repositório diz o que abrir pra trabalhar nele; aí `vs projeto` → Ctrl+Enter → **Começar a trabalhar** abre tudo de uma vez. Sem receita, a mesma lista tem "Criar uma receita", que gera o arquivo comentado:
 
 ```toml
 editor = true                         # abre no editor
@@ -71,7 +71,7 @@ abrir = ["http://localhost:3000"]     # links e arquivos
 
 **Ações personalizadas:** em Configurações → Ações dá pra esconder qualquer ação (o `git pull` dos repositórios, por exemplo) e escolher quais viram botão na linha, por categoria.
 
-**Fixar e esconder:** todo resultado tem, no Shift+Enter, "Fixar no topo" (ele e a categoria dele sobem) e "Esconder este resultado". Pra desfazer: aba de configurações → Categorias.
+**Fixar e esconder:** todo resultado tem, no Ctrl+Enter, "Fixar no topo" (ele e a categoria dele sobem) e "Esconder este resultado". Pra desfazer: aba de configurações → Categorias.
 
 ## Instalar
 
@@ -110,7 +110,7 @@ No Hyprland e no Sway, coloque na config `exec-once = jacundash --fundo` (Hyprla
 | `jacundash --atalho Alt+Space --assumir` | liga mesmo se a tecla for de outro atalho (mostra o que ele tinha) |
 | `jacundash --atalho --desfazer` | devolve a tecla pra quem tinha antes do `--assumir` |
 | `jacundash --enter` | aperta Enter na janela aberta (pra scripts: `jacundash "ia liberar" && sleep 1 && jacundash --enter`) |
-| `jacundash --tecla Down` | aperta uma tecla na janela aberta (`Tab`, `shift+Return`, `Escape`...), pra scripts |
+| `jacundash --tecla Down` | aperta uma tecla na janela aberta (`Tab`, `ctrl+Return`, `Escape`...), pra scripts |
 | `jacundash --fundo` | só deixa rodando em segundo plano |
 | `jacundash --sair` | encerra (o próximo `jacundash` recarrega config, tema e plugins) |
 

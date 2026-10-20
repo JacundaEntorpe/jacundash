@@ -1,4 +1,4 @@
-//! Resultados fixados no topo e escondidos (Shift+Enter → Fixar / Esconder). Ficam em
+//! Resultados fixados no topo e escondidos (Ctrl+Enter → Fixar / Esconder). Ficam em
 //! ~/.local/state/jacundash/marcas.json.
 
 use crate::config::pasta_estado;

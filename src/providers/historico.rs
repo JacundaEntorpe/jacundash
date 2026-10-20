@@ -1,5 +1,5 @@
 //! ">git pu": os comandos que você já rodou, pelo Atuin se tiver; senão pelo histórico do
-//! bash, do zsh ou do fish. Enter roda no terminal; Shift+Enter copia.
+//! bash, do zsh ou do fish. Enter roda no terminal; Ctrl+Enter copia.
 
 use crate::config::home;
 use crate::engine::{Provider, Query};
@@ -94,7 +94,7 @@ impl Provider for Historico {
             .map(|(i, c)| {
                 let rodar = Effect::Exec { cmd: vec!["sh".into(), "-c".into(), c.clone()], terminal: true, cwd: None, hold: true, tab: None };
                 Item::new(c.clone(), rodar)
-                    .subtitle(if i == 0 { "Enter roda no terminal  ·  Shift+Enter copia" } else { "" })
+                    .subtitle(if i == 0 { "Enter roda no terminal  ·  Ctrl+Enter copia" } else { "" })
                     .icon("utilities-terminal")
                     .score(0.8 - i as f32 * 0.005)
                     .action("Copiar o comando", "edit-copy", Effect::Copy { text: c.clone() })

@@ -50,7 +50,7 @@ impl Provider for Hermes {
         }
         vec![
             Item::new(format!("Hermes: {tarefa}"), Effect::terminal(&[&comando, "chat", "-q", &tarefa], None))
-                .subtitle("Enter abre no terminal (dá pra acompanhar e aprovar)  ·  Shift+Enter roda em segundo plano")
+                .subtitle("Enter abre no terminal (dá pra acompanhar e aprovar)  ·  Ctrl+Enter roda em segundo plano")
                 .icon("dialog-scripts")
                 .score(1.0)
                 .action("Rodar em segundo plano (resposta numa notificação)", "system-run", Effect::Callback { data: format!("fundo:{tarefa}") }),

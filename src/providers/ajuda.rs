@@ -19,10 +19,10 @@ const FIXOS: &[(&str, &str, &str, &str)] = &[
     (":nome", "Emoji pelo nome (:fogo)", "face-smile", ":"),
     ("traduz texto  /  explica comando", "A IA local traduz ou explica (com ou sem o \"ia\" na frente)", "dialog-messages", "traduz "),
     ("timer 10m chá  /  lembrete 18:30 reunião", "Timer e lembrete com notificação e alarme; \"timer\" lista os ativos", "chronometer", "timer "),
-    ("kill nome", "Encerra programas pelo nome (Shift+Enter força)", "process-stop", "kill "),
+    ("kill nome", "Encerra programas pelo nome (Ctrl+Enter força)", "process-stop", "kill "),
     ("gh:texto  ou  gh texto", "Atalhos de busca da web (yt, gh, aur, protondb...)", "internet-web-browser", ""),
     ("Tab / Shift+Tab", "Pula pra próxima categoria / volta", "input-keyboard", ""),
-    ("Shift+Enter  ou  clique direito", "Todas as ações do resultado (fixar, esconder...)", "input-keyboard", ""),
+    ("Ctrl+Enter  ou  clique direito", "Todas as ações do resultado (fixar, esconder...)", "input-keyboard", ""),
     ("Ctrl+,", "Configurações", "preferences-system", "config"),
 ];
 

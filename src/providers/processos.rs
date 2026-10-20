@@ -1,5 +1,5 @@
 //! "kill firefox": encerra programas pelo nome (só os seus). Os processos com o mesmo nome
-//! aparecem juntos, com quanta memória usam. Enter encerra; Shift+Enter força (kill -9).
+//! aparecem juntos, com quanta memória usam. Enter encerra; Ctrl+Enter força (kill -9).
 
 use crate::engine::{Provider, Query};
 use crate::matcher;
